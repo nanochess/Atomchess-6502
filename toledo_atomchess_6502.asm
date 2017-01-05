@@ -5,6 +5,9 @@
         ;
         ; Creation date: Jan/02/2017. Ported from Toledo Atomchess x86.
         ; Revision date: Jan/04/2017. Working board display logic and selection.
+        ; Revision date: Jan/05/2017. Avoid player to move non-white pieces or
+        ;                             bug when fire bounces. Now using another
+        ;                             color for black pieces. Small optimization.
         ;
 
         processor 6502
@@ -20,6 +23,7 @@
         ;
         ; Assemble with dasm from http://dasm-dillon.sourceforge.net/ 
         ; Tested with Stella from http://stella.sourceforge.net/
+        ; Tested in real Atari 2600 using Harmony cartridge.
 
         org $fc00
 
@@ -123,6 +127,11 @@ even    = $80        ; Marks even/odd
 
 board   = $8c        ; 78 bytes used, there should be space for 12+12+10 bytes of stack
 
+color_white = $0e
+color_black = $28
+color_white_square = $74
+color_black_square = $70
+
 START:
         sei          ; Disable interruptions
         cld          ; Disable decimal mode
@@ -136,7 +145,7 @@ sr0:    sta 0,X      ; Save in address 0 plus X
         sta SWACNT   ; Allow to read joysticks
         sta SWBCNT   ; Allow to read buttons
 
-        ldx #0
+;       ldx #0       ; x is zero
 sr1:    ldy #8
 sr3:    lda #$00
         sta board,x
@@ -168,9 +177,26 @@ sr2:    lda initial,x
         ; Main loop
         ;
 sr21:   jsr read_coor
+        lda board,y
+        and #8          ; Check for white piece
+        beq sr21        ; If no, jump and restart selection logic
         jsr read_coor
+        lda board,y
+        and #8          ; Check for white piece
+        bne sr21        ; If yes, jump and restart selection logic
         jsr sr28        ; Make movement
-        jsr display     ; Display board
+        ldx #63
+kn0:    txa
+        lsr
+        lsr
+        sta AUDV0
+        txa
+        pha
+        jsr kernel
+        pla
+        tax
+        dex
+        bne kn0
         jsr play        ; Computer play
         jmp sr21
 
@@ -395,28 +421,24 @@ kernel:
         sta COLUBK      ; Background color
 
         ; VERTICAL_SYNC
-        lda #2
-        sta VSYNC       ; Start vertical synchro
-        sta WSYNC       ; Wait for 3 lines
-        sta WSYNC
-        sta WSYNC
+        ldx #2
+        stx VSYNC       ; Start vertical synchro
+        stx WSYNC       ; Wait for 3 lines
+        stx WSYNC
+        stx WSYNC
         ;
-        lda #43
-        sta TIM64T
-        lda #0
+        ldx #43
+        stx TIM64T
         sta VSYNC       ; Stop vertical synchro
-        lda #$70
-        sta COLUBK      ; Background color
-        lda #$35
-        sta NUSIZ0
-        sta NUSIZ1
-        lda #$00
         sta GRP0
         sta GRP1
-        lda #$74
-        sta COLUPF
-        lda #$20
-        sta CTRLPF
+        lda #color_black_square
+        sta COLUBK      ; Background color
+        lda #$35
+        sta NUSIZ0      ; Size of player/missile 0
+        sta NUSIZ1      ; Size of player/missile 1
+        lda #color_white_square
+        sta COLUPF      ; Color of playfield
         lda cursorx     ; Get X-position of cursor and set up missile 0
         asl
         asl
@@ -483,13 +505,15 @@ ds7:    sta PF2
         lda board,x      ; Check color for the two pieces
         and #8
         beq ds4
-        lda #$0e
-ds4:    sta COLUP0
+        lda #color_white^color_black         ; White for white pieces
+ds4:    eor #color_black         ; Green for black pieces
+        sta COLUP0
         lda board+4,x
         and #8
         beq ds5
-        lda #$0e
-ds5:    sta COLUP1
+        lda #color_white^color_black         ; White for white pieces
+ds5:    eor #color_black         ; Green for black pieces
+        sta COLUP1
         sta WSYNC        ; Row 1
         lda even
         cmp cursory
@@ -524,17 +548,14 @@ ds3:    sta WSYNC        ; Row 2/5/8/11/14/17/20
         inc bitmap1
         dey
         bne ds3
-        lda #0
-        sta ENAM0        ; Disable cursor
+        sty ENAM0        ; Disable cursor
         inc even
         pla
         clc
         adc #10          ; Next row of board
         tax
         cmp #80
-        bcs ds8
-        jmp ds0
-ds8:
+        bcc ds0
 
         ;
         ; End of graphics (204 lines)
@@ -561,20 +582,6 @@ wait_overscan:
 
         rts
 
-        ;
-        ; Display board for 1 second
-        ;
-display:
-        ldx #60
-kn0:    txa
-        pha
-        jsr kernel
-        pla
-        tax
-        dex
-        bne kn0
-        rts
-        
         echo "Free bytes section 1: ",$ff00-*
 
         org $ff00       
@@ -650,6 +657,9 @@ read_coor2:
         sta pINPT4
         pla
         bmi rc5            ; Jump if button not pressed
+        ;
+        ; Computer plays
+        ;
         ldx #$03
         stx AUDC0
         ldx #$08
@@ -703,6 +713,9 @@ rc2:    rol                ; Jump if not going up
 rc3:
         jmp read_coor2
 
+        ;
+        ; Selection of piece
+        ;
 sound_effect0:
         ldx #$01
         stx AUDC0
