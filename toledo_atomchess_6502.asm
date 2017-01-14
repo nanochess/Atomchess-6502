@@ -3,6 +3,8 @@
         ;
         ; by Óscar Toledo G. (nanochess)
         ;
+        ; © Copyright 2017 Óscar Toledo Gutiérrez
+        ;
         ; Creation date: Jan/02/2017. Ported from Toledo Atomchess x86.
         ; Revision date: Jan/04/2017. Working board display logic and selection.
         ; Revision date: Jan/05/2017. Avoid player to move non-white pieces or
@@ -27,6 +29,7 @@
         ; Tested with Stella from http://stella.sourceforge.net/
         ; Tested in real Atari 2600 using Harmony cartridge.
         ; Tested with online emulation from http://8bitworkshop.com/
+        ; Demostration video at https://www.youtube.com/watch?v=_Du4krvIl7o
 
         org $fc00
 
