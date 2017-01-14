@@ -8,6 +8,8 @@
         ; Revision date: Jan/05/2017. Avoid player to move non-white pieces or
         ;                             bug when fire bounces. Now using another
         ;                             color for black pieces. Small optimization.
+        ; Revision date: Jan/13/2017. Solved bug where it would answer with move
+        ;                             after checkmate. Some more comments.
         ;
 
         processor 6502
@@ -24,6 +26,7 @@
         ; Assemble with dasm from http://dasm-dillon.sourceforge.net/ 
         ; Tested with Stella from http://stella.sourceforge.net/
         ; Tested in real Atari 2600 using Harmony cartridge.
+        ; Tested with online emulation from http://8bitworkshop.com/
 
         org $fc00
 
@@ -127,10 +130,13 @@ even    = $80        ; Marks even/odd
 
 board   = $8c        ; 78 bytes used, there should be space for 12+12+10 bytes of stack
 
-color_white = $0e
-color_black = $28
-color_white_square = $74
-color_black_square = $70
+        ;
+        ; These are colors for NTSC video, change for PAL
+        ;
+color_white = $0e    ; Color for white pieces
+color_black = $28    ; Color for black pieces
+color_white_square = $74     ; Color for white squares
+color_black_square = $70     ; Color for black squares
 
 START:
         sei          ; Disable interruptions
@@ -180,10 +186,10 @@ sr21:   jsr read_coor
         lda board,y
         and #8          ; Check for white piece
         beq sr21        ; If no, jump and restart selection logic
-        jsr read_coor
+sr11:   jsr read_coor
         lda board,y
         and #8          ; Check for white piece
-        bne sr21        ; If yes, jump and restart selection logic
+        bne sr11        ; If yes, restart target square logic
         jsr sr28        ; Make movement
         ldx #63
 kn0:    txa
@@ -290,7 +296,7 @@ sr27:   lda board,y
         pla
         tsx
         lda #$3f-18     ; Maximum score minus two queens...
-        cpx #$ff-2      ; ...if not in first response.
+        cpx #$f1        ; ...if not in first response.
         bne sr26
         lda #$3f        ; Maximum score (probably checkmate/stalemate)
 sr26:   sta score
