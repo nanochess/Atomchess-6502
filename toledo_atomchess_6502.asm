@@ -17,10 +17,20 @@
         ;                             graphical/input interface for further 18
         ;                             bytes.
         ; Revision date: Jan/16/2017. Saved 2 bytes more in playfield setup for
-        ;                             squares (Ferrie).
+        ;                             squares (Ferrie). Taken note of which
+        ;                             instructions can trigger the oVerflow flag.
+        ;                             Now can be assembled for visual6502.org
         ;
 
         processor 6502
+
+atari      = $00 ; Define this to create an Atari VCS/2600 game (1K ROM)
+visual6502 = $01 ; Define this to create a Visual6502.org playable game.
+
+        ;
+        ; Change this to your preference.
+        ;
+mode       = atari
 
         ; Features:
         ; * Computer plays legal basic chess movements ;)
@@ -37,8 +47,9 @@
         ; Tested with online emulation from http://8bitworkshop.com/
         ; Demostration video at https://www.youtube.com/watch?v=_Du4krvIl7o
 
-        org $fc00
+    if mode = atari
 
+        org $fc00
 VSYNC   = $00 ; 0000 00x0   Vertical Sync Set-Clear
 VBLANK  = $01 ; xx00 00x0   Vertical Blank Set-Clear
 WSYNC   = $02 ; ---- ----   Wait for Horizontal Blank
@@ -116,6 +127,17 @@ TIM8T   = $295  ; set 8 clock interval
 TIM64T  = $296  ; set 64 clock interval
 T1024T  = $297  ; set 1024 clock interval
 
+        ;
+        ; These are colors for NTSC video, change for PAL
+        ;
+color_white = $0e    ; Color for white pieces
+color_black = $28    ; Color for black pieces
+color_white_square = $74     ; Color for white squares
+color_black_square = $70     ; Color for black squares
+
+    else
+        org $0100
+    endif
 
 score   = $80        ; Current score
 side    = $81        ; Current side
@@ -139,17 +161,10 @@ even    = $80        ; Marks even/odd
 
 board   = $8c        ; 78 bytes used, there should be space for 12+12+10 bytes of stack
 
-        ;
-        ; These are colors for NTSC video, change for PAL
-        ;
-color_white = $0e    ; Color for white pieces
-color_black = $28    ; Color for black pieces
-color_white_square = $74     ; Color for white squares
-color_black_square = $70     ; Color for black squares
-
 START:
         sei          ; Disable interruptions
         cld          ; Disable decimal mode
+    if mode = atari
         ; Clean up the memory
         lda #0       ; Load zero in accumulator
         tax          ; ...copy in X
@@ -157,10 +172,23 @@ sr0:    sta 0,X      ; Save in address 0 plus X
         txs          ; Copy X in S (stack) last value will be $ff
         inx          ; Increment X
         bne sr0      ; Repeat until X is zero.
+
         sta SWACNT   ; Allow to read joysticks
         sta SWBCNT   ; Allow to read buttons
-
 ;       ldx #0       ; x is zero
+    else
+        ; Clean up the memory
+        ldx #$ff
+        txs
+        lda #$00     ; Load zero in accumulator
+        ldx #$80     ; ...copy in X
+sr0:    sta 0,X      ; Save in address 0 plus X
+        inx          ; Increment X
+        cpx #$8c
+        bne sr0      ; Repeat until X is zero.
+        tax          ; x is zero
+    endif
+
 sr1:    ldy #8
 sr3:    lda #$00
         sta board,x
@@ -191,7 +219,12 @@ sr2:    lda initial,x
         ;
         ; Main loop
         ;
-sr21:   jsr read_coor
+sr21:
+    if mode = atari
+    else
+        jsr kernel
+    endif
+        jsr read_coor
         lda board,y
         and #8          ; Check for white piece
         beq sr21        ; If no, jump and restart selection logic
@@ -200,6 +233,7 @@ sr11:   jsr read_coor
         and #8          ; Check for white piece
         bne sr11        ; If yes, restart target square logic
         jsr sr28        ; Make movement
+    if mode = atari
         ldx #63
 kn0:    txa
         lsr
@@ -212,6 +246,9 @@ kn0:    txa
         tax
         dex
         bne kn0
+    else
+        jsr kernel
+    endif
         jsr play        ; Computer play
         jmp sr21
 
@@ -275,9 +312,9 @@ sr9:    ldy offset
         lda displacement,y
         clc
         adc target      ; Next target square
-        sta target
         cmp #78         ; Out of board?
         bcs sr14
+        sta target      
 
         cpy #16
         tay
@@ -406,11 +443,12 @@ sr18:   lda board,x
 
 sr16:   jmp sr14
 
+    if mode = atari
         ;
         ; Set object in X
         ; A = X position
         ; First arg = Object to position (0=P0, 1=P1, 2=M0, 3=M1, 4=BALL)
-        ; Exits with carry = 0
+        ; Exits with carry = 0, it can set V flag for X >= 128
         ;
         MAC set_x_position
         sta WSYNC       ; 0- Start line synchro
@@ -456,7 +494,7 @@ kernel:
         sta even
         asl
         asl
-        adc even
+        adc even        ; Can set V flag for eighth square (cursorx = 7)
         adc #14
         cmp #14
         bne *+4
@@ -469,7 +507,7 @@ kernel:
         sta even
         asl
         asl
-        adc even
+        adc even        
         tax             ; One column for player 0
         bne *+4
         sbc #2
@@ -477,7 +515,7 @@ kernel:
         set_x_position 0
         txa
         ;clc            ; Carry zero already
-        adc #88         ; One column for player 1
+        adc #88         ; One column for player 1, can set V flag
         set_x_position 1
         sta WSYNC              
         sta HMOVE       ; Fine adjustment for all set_x_position
@@ -609,22 +647,6 @@ fine_adjustment:
         .byte $a0       ; +6
         .byte $90       ; +7
 
-initial:
-        .byte $02,$05,$03,$04,$06,$03,$05,$02
-
-scores:
-        .byte 0,1,5,3,9,3
-
-offsets:
-        .byte 16,20,8,12,8,0,8
-
-displacement:
-        .byte -21,-19,-12,-8,8,12,19,21
-        .byte -10,10,-1,1
-        .byte 9,11,-9,-11
-        .byte -11,-9,-10,-20
-        .byte 9,11,10,20
-
 pieces:
         .byte $00,$00,$00,$00,$00,$00,$00,$00
         .byte $00,$18,$3c,$3c,$18,$3c,$00,$00
@@ -719,8 +741,117 @@ read_coor2:
         adc cursorx        ; + x_coor
         rts
 
+    else
+kernel:
+        jsr headers
+        lda #$38
+        sta bitmap0
+        ldx #0
+kn0:    lda bitmap0
+        sta $0f
+        lda #$20
+        sta $0f
+        ldy #8
+kn1:    txa
+        pha
+        lda board,x
+        tax
+        lda letters,x
+        sta $0f
+        lda #$20
+        sta $0f
+        pla
+        tax
+        inx
+        dey
+        bne kn1
+        lda bitmap0
+        sta $0f
+        lda #$0a
+        sta $0f
+        dec bitmap0
+        inx
+        inx
+        cpx #80
+        bne kn0
+        jsr headers
+        rts
+
+headers:
+        ldx #0
+kn2:    lda header,x
+        sta $0f
+        lda #$20
+        sta $0f
+        inx
+        cpx #9
+        bne kn2
+        lda #$0a
+        sta $0f
+        rts
+
+header:
+        .byte $20,$41,$42,$43,$44,$45,$46,$47
+        .byte $48
+
+letters:
+        .byte $2e,$70,$72,$62,$71,$6e,$6b,$00
+        .byte $00,$50,$52,$42,$51,$4e,$4b
+
+        ;
+        ; Read a coordinate choosen by cursor
+        ; Moves y to x, y contains new coordinate.
+        ;
+read_coor:
+        tya
+        pha
+rc0:    lda $d011
+        beq rc0
+        lda $d010
+        and $0f
+        sta even
+        dec even
+rc1:    lda $d011
+        beq rc1
+        and $0f
+        sta bitmap0
+        lda #$08
+        sec
+        sbc bitmap0
+        asl
+        sta bitmap0
+        asl
+        asl
+        adc bitmap0
+        adc even
+        ldy even
+        pla
+        tax
+        rts
+
+
+    endif
+
+initial:
+        .byte $02,$05,$03,$04,$06,$03,$05,$02
+
+scores:
+        .byte 0,1,5,3,9,3
+
+offsets:
+        .byte 16,20,8,12,8,0,8
+
+displacement:
+        .byte -21,-19,-12,-8,8,12,19,21
+        .byte -10,10,-1,1
+        .byte 9,11,-9,-11
+        .byte -11,-9,-10,-20
+        .byte 9,11,10,20
+
+    if mode = atari 
         echo "Free bytes section 2: ",$fffc-*
 
         org $fffc
         .word START        ; RESET
         .word START        ; BRK
+    endif
