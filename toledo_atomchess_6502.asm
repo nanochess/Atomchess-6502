@@ -12,6 +12,8 @@
         ;                             color for black pieces. Small optimization.
         ; Revision date: Jan/13/2017. Solved bug where it would answer with move
         ;                             after checkmate. Some more comments.
+        ; Revision date: Jan/15/2017. Added size optimizations by Peter Ferrie,
+        ;                             19 bytes saved.
         ;
 
         processor 6502
@@ -145,11 +147,11 @@ START:
         sei          ; Disable interruptions
         cld          ; Disable decimal mode
         ; Clean up the memory
-        ldx #$ff     ; Load X with $FF...
-        txs          ; ...copy to stack pointer
         lda #0       ; Load zero in accumulator
+        tax          ; ...copy in X
 sr0:    sta 0,X      ; Save in address 0 plus X
-        dex          ; Decrement X
+        txs          ; Copy X in S (stack) last value will be $ff
+        inx          ; Increment X
         bne sr0      ; Repeat until X is zero.
         sta SWACNT   ; Allow to read joysticks
         sta SWBCNT   ; Allow to read buttons
@@ -168,7 +170,7 @@ sr3:    lda #$00
         inx
         cpx #8*10
         bne sr1
-        ldx #7
+        tax          ; a was $07, so x = $07
 sr2:    lda initial,x
         sta board,x
         ora #$08
@@ -178,7 +180,7 @@ sr2:    lda initial,x
         sta board+60,x
         dex
         bpl sr2
-        lda #4
+        lsr          ; lda #4, but A was $09 / 2 = $04
         sta cursorx
         sta cursory
 
@@ -254,13 +256,12 @@ sr7:    lda board,x     ; Read square
         cmp #7          ; Ignore if frontier
         bcs sr17
         cmp #1          ; Is it pawn?
-        bne sr25
+        bne sr25        ; Carry will be 1 always because 1<=A<=6
         ldy side        ; Is it playing black?
         beq sr25        ; Yes, jump
         lda #0          ; Make it zero for white
 sr25:   tay
-        clc
-        adc #4
+        adc #3          ; Adds 4 because carry is 1 (see above)
         and #$0c
         sta total       ; Total movements of piece
         lda offsets,y
@@ -272,13 +273,8 @@ sr9:    ldy offset
         adc target      ; Next target square
         sta target
         cmp #78         ; Out of board?
-        bcc sr19
-        jmp sr14
+        bcs sr14
 
-sr29:
-        jmp sr18
-
-sr19:
         cpy #16
         tay
         lda board,y     ; Content of target square
@@ -292,7 +288,7 @@ sr27:   lda board,y
         sec
         sbc #9          ; Valid capture?
         cmp #6
-        bcs sr29        ; No, avoid
+        bcs sr29        ; No, avoid (too far for sr18, use sr29 as bridge)
         cmp #5
         bne sr20        ; Jump if not captured king
         pla             ; Ignore values
@@ -309,16 +305,16 @@ sr10:   bcc sr20        ; If isn't pawn, jump.
         lda total
         cmp #2          ; Diagonal?
         beq sr15        ; Jump if one square ahead
-        bcs sr18        ; Yes, avoid
+sr29:   bcs sr18        ; Yes, avoid
         bcc sr20
 
 sr15:   txa
-        sec
+        ;sec            ; Carry set already because equality comparison
         sbc #20
         cmp #40         ; Moving from center of board?
         bcs sr20
         dec total       ; Yes, then avoid checking for two squares
-        bcc sr20
+        ;bcc sr20       ; Fall along
 
         ; Save all state
 sr20:   lda offset      ; Offset for movement
@@ -364,12 +360,13 @@ sr20:   lda offset      ; Offset for movement
 sr22:   cmp score        ; Better score?
         clc
         bmi sr23        ; No, jump
-        bne sr33
-        lda frame
+        bne sr33        ; Better score? yes, jump
+        lda frame       ; Equal score, randomize move
         ror
         ror
-        bcc sr23
-        bcs sr23
+        jmp sr23        ; No need to update score but carry = 1 will update move
+        ;bcc sr23
+        ;bcs sr23
 sr33:   sta score       ; Update score
         sec
 sr23:   pla             ; Restore board
@@ -409,6 +406,7 @@ sr16:   jmp sr14
         ; Set object in X
         ; A = X position
         ; X = Object to position (0=P0, 1=P1, 2=M0, 3=M1, 4=BALL)
+        ; Exits with carry = 0
         ;
         MAC set_x_position
         sta WSYNC       ; 0- Start line synchro
@@ -475,7 +473,7 @@ kernel:
         sbc #3
         set_x_position 0
         lda even
-        clc
+        ;clc            ; Carry zero already
         adc #80         ; One column for player 1
         set_x_position 1
         sta WSYNC              
@@ -539,7 +537,7 @@ ds5:    eor #color_black         ; Green for black pieces
         and #7
         asl
         asl
-        asl
+        asl              ; //Carry is zero after this instruction
         sta bitmap1
         txa
         pha
@@ -560,7 +558,7 @@ ds3:    sta WSYNC        ; Row 2/5/8/11/14/17/20
         sty ENAM0        ; Disable cursor
         inc even
         pla
-        clc
+        ;clc             ; Carry is still zero//
         adc #10          ; Next row of board
         tax
         cmp #80
@@ -649,39 +647,6 @@ read_coor:
         tax
         rts
 
-        ;
-        ; Read a coordinate in a
-        ;
-read_coor2:
-        jsr kernel
-        lda #0
-        sta AUDV0
-        lda INPT4          ; Read current state of button
-        sta even
-        eor pINPT4
-        eor #$ff
-        ora even           ; Disable unchanged button
-        pha
-        lda even
-        sta pINPT4
-        pla
-        bmi rc5            ; Jump if button not pressed
-        ;
-        ; Computer plays
-        ;
-        ldx #$03
-        stx AUDC0
-        ldx #$08
-        stx AUDV0
-        stx AUDF0
-        lda cursory        ; y_coor 
-        asl                ; *2
-        asl                ; *4
-        adc cursory        ; *5
-        asl                ; *10
-        adc cursorx        ; + x_coor
-        rts
-
 rc5:    lda SWCHA          ; Read current state of joystick
         sta even
         eor pSWCHA         
@@ -720,7 +685,39 @@ rc2:    rol                ; Jump if not going up
         dec cursory
         jsr sound_effect0
 rc3:
-        jmp read_coor2
+;       jmp read_coor2     ; Fall thru
+        ;
+        ; Read a coordinate in a
+        ;
+read_coor2:
+        jsr kernel
+        lda #0
+        sta AUDV0
+        lda INPT4          ; Read current state of button
+        sta even
+        eor pINPT4
+        eor #$ff
+        ora even           ; Disable unchanged button
+        pha
+        lda even
+        sta pINPT4
+        pla
+        bmi rc5            ; Jump if button not pressed
+        ;
+        ; Computer plays
+        ;
+        ldx #$03
+        stx AUDC0
+        ldx #$08
+        stx AUDV0
+        stx AUDF0
+        lda cursory        ; y_coor 
+        asl                ; *2
+        asl                ; *4
+        adc cursory        ; *5
+        asl                ; *10
+        adc cursorx        ; + x_coor
+        rts
 
         ;
         ; Selection of piece

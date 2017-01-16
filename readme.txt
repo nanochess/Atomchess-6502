@@ -57,3 +57,7 @@ Even if pixel objects are a single pixel (but can be "fat") these can be draw ov
 
 Of the 1024 bytes, the AI engine uses 429 bytes (initialization+engine+tables), the repetitive nature of the TIA display occupies the remaining bytes. Still remains 30 bytes free for improvements.
 
+Acknowledgements:
+
+* Peter Ferrie for some pretty cool optimizations.
+
