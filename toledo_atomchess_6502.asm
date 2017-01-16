@@ -16,6 +16,8 @@
         ;                             19 bytes saved. Also I've optimized my
         ;                             graphical/input interface for further 18
         ;                             bytes.
+        ; Revision date: Jan/16/2017. Saved 2 bytes more in playfield setup for
+        ;                             squares (Ferrie).
         ;
 
         processor 6502
@@ -498,17 +500,16 @@ ds1:    sta WSYNC       ; Row 0
         bcc ds6
         lda #$00
         sta PF0
-        lda #$7c
-        sta PF1
+        ldy #$7c
         lda #$f8
         bne ds7
 
 ds6:    lda #$f0
         sta PF0
-        lda #$83
-        sta PF1
+        ldy #$83
         lda #$07
-ds7:    sta PF2
+ds7:    sty PF1
+        sta PF2
         lda board,x      ; Check color for the two pieces
         and #8
         beq ds4
