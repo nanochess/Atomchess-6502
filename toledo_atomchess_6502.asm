@@ -13,7 +13,9 @@
         ; Revision date: Jan/13/2017. Solved bug where it would answer with move
         ;                             after checkmate. Some more comments.
         ; Revision date: Jan/15/2017. Added size optimizations by Peter Ferrie,
-        ;                             19 bytes saved.
+        ;                             19 bytes saved. Also I've optimized my
+        ;                             graphical/input interface for further 18
+        ;                             bytes.
         ;
 
         processor 6502
@@ -405,7 +407,7 @@ sr16:   jmp sr14
         ;
         ; Set object in X
         ; A = X position
-        ; X = Object to position (0=P0, 1=P1, 2=M0, 3=M1, 4=BALL)
+        ; First arg = Object to position (0=P0, 1=P1, 2=M0, 3=M1, 4=BALL)
         ; Exits with carry = 0
         ;
         MAC set_x_position
@@ -466,15 +468,14 @@ kernel:
         asl
         asl
         adc even
-        adc #8
-        sta even        ; One column for player 0
-        cmp #8
+        tax             ; One column for player 0
         bne *+4
-        sbc #3
+        sbc #2
+        adc #8
         set_x_position 0
-        lda even
+        txa
         ;clc            ; Carry zero already
-        adc #80         ; One column for player 1
+        adc #88         ; One column for player 1
         set_x_position 1
         sta WSYNC              
         sta HMOVE       ; Fine adjustment for all set_x_position
@@ -487,11 +488,10 @@ wait_vblank:
         ;
         sta WSYNC              
         sta VBLANK
-        sta even
+        sta even        ; Now uses like row counter, start at zero
         lda frame       ; Board position per frame
         and #3
-        tax
-ds0:    
+ds0:    tax    
 ds1:    sta WSYNC       ; Row 0
         lda even        ; Squares configuration over board
         lsr
@@ -522,10 +522,10 @@ ds4:    eor #color_black         ; Green for black pieces
 ds5:    eor #color_black         ; Green for black pieces
         sta COLUP1
         sta WSYNC        ; Row 1
-        lda even
-        cmp cursory
-        php
-        pla
+        lda even         ; Check if row...
+        cmp cursory      ; ...equals row of cursor
+        php              ; Save Z flag...
+        pla              ; ...so it goes to bit 1
         sta ENAM0        ; Enable missile if at right Y position
         lda board,x      ; Setup pointers to bitmaps for two pieces
         and #7
@@ -556,11 +556,10 @@ ds3:    sta WSYNC        ; Row 2/5/8/11/14/17/20
         dey
         bne ds3
         sty ENAM0        ; Disable cursor
-        inc even
+        inc even         ; Increase current row
         pla
         ;clc             ; Carry is still zero//
         adc #10          ; Next row of board
-        tax
         cmp #80
         bcc ds0
 
@@ -647,28 +646,27 @@ read_coor:
         tax
         rts
 
-rc5:    lda SWCHA          ; Read current state of joystick
+rc5:    ldy #0
+        lda SWCHA          ; Read current state of joystick
         sta even
-        eor pSWCHA         
+        tax
+        eor pSWCHA
+        stx pSWCHA         
         eor #$ff
         ora even           ; Disable unchanged directions
-        pha
-        lda even
-        sta pSWCHA
-        pla
         bmi rc0            ; Jump if not going right
         ldx cursorx
         cpx #7
         beq rc0
         inc cursorx
-        jsr sound_effect0
+        ldy #8
 
 rc0:    rol                ; Jump if not going left
         bmi rc1
         ldx cursorx
         beq rc1
         dec cursorx
-        jsr sound_effect0
+        ldy #8
 
 rc1:    rol                ; Jump if not going down
         bmi rc2
@@ -676,32 +674,33 @@ rc1:    rol                ; Jump if not going down
         cpx #7
         beq rc2
         inc cursory
-        jsr sound_effect0
+        ldy #8
 
 rc2:    rol                ; Jump if not going up
         bmi rc3
         ldx cursory
         beq rc3
         dec cursory
-        jsr sound_effect0
-rc3:
+        ldy #8
+rc3:    ldx #$01
+        stx AUDC0
+        sty AUDV0
+        sty AUDF0
 ;       jmp read_coor2     ; Fall thru
         ;
         ; Read a coordinate in a
         ;
 read_coor2:
         jsr kernel
-        lda #0
+        ;lda #0            ; Kernel returns with a = 0
         sta AUDV0
         lda INPT4          ; Read current state of button
         sta even
+        tax
         eor pINPT4
+        stx pINPT4
         eor #$ff
         ora even           ; Disable unchanged button
-        pha
-        lda even
-        sta pINPT4
-        pla
         bmi rc5            ; Jump if button not pressed
         ;
         ; Computer plays
@@ -717,17 +716,6 @@ read_coor2:
         adc cursory        ; *5
         asl                ; *10
         adc cursorx        ; + x_coor
-        rts
-
-        ;
-        ; Selection of piece
-        ;
-sound_effect0:
-        ldx #$01
-        stx AUDC0
-        ldx #$08
-        stx AUDV0
-        stx AUDF0
         rts
 
         echo "Free bytes section 2: ",$fffc-*
