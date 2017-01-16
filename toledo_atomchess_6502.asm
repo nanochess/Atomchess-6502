@@ -376,8 +376,11 @@ sr20:   lda offset      ; Offset for movement
         tay
         lda scores,y    ; Score for capture
         tsx
-;       cpx #255-10*2+1 ; Depth limit (1-ply)
+    if mode = atari
         cpx #255-10*3+1 ; Depth limit (2-ply)
+    else
+        cpx #255-10*2+1 ; Depth limit (1-ply)
+    endif
         bcc sr22
         pha
         lda score       ; Current score
@@ -813,6 +816,7 @@ rc0:    lda $d011
         dec even
 rc1:    lda $d011
         beq rc1
+        lda $d010
         and $0f
         sta bitmap0
         lda #$08

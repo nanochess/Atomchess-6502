@@ -377,129 +377,132 @@
     376  fd36		       a8		      tay
     377  fd37		       b9 c7 ff 	      lda	scores,y	; Score for capture
     378  fd3a		       ba		      tsx
-    379  fd3b							;	 cpx #255-10*2+1 ; Depth limit (1-ply)
+    379  fd3b					      if	mode = atari
     380  fd3b		       e0 e2		      cpx	#255-10*3+1	; Depth limit (2-ply)
-    381  fd3d		       90 22		      bcc	sr22
-    382  fd3f		       48		      pha
-    383  fd40		       a5 80		      lda	score	; Current score
-    384  fd42		       48		      pha
-    385  fd43		       a6 84		      ldx	origin
-    386  fd45		       a4 85		      ldy	target
-    387  fd47		       20 87 fc 	      jsr	sr28	; Do move
-    388  fd4a		       a5 81		      lda	side
-    389  fd4c		       49 08		      eor	#8	; Change side
-    390  fd4e		       85 81		      sta	side
-    391  fd50		       20 a3 fc 	      jsr	play
-    392  fd53		       a5 81		      lda	side
-    393  fd55		       49 08		      eor	#8	; Change side
-    394  fd57		       85 81		      sta	side
-    395  fd59		       68		      pla
-    396  fd5a		       aa		      tax		; Current score in x
-    397  fd5b		       68		      pla
-    398  fd5c		       38		      sec		; Take capture score and substract adversary score
-    399  fd5d		       e5 80		      sbc	score
-    400  fd5f		       86 80		      stx	score	; Restore current score
-    401  fd61		       c5 80	   sr22       cmp	score	; Better score?
-    402  fd63		       18		      clc
-    403  fd64		       30 0c		      bmi	sr23	; No, jump
-    404  fd66		       d0 07		      bne	sr33	; Better score? yes, jump
-    405  fd68		       a5 86		      lda	frame	; Equal score, randomize move
-    406  fd6a		       6a		      ror
-    407  fd6b		       6a		      ror
-    408  fd6c		       4c 72 fd 	      jmp	sr23	; No need to update score but carry = 1 will update move
-    409  fd6f							;bcc sr23
-    410  fd6f							;bcs sr23
-    411  fd6f		       85 80	   sr33       sta	score	; Update score
-    412  fd71		       38		      sec
-    413  fd72		       68	   sr23       pla		; Restore board
-    414  fd73		       aa		      tax
-    415  fd74		       68		      pla
-    416  fd75		       95 8c		      sta	board,x
-    417  fd77		       68		      pla
-    418  fd78		       85 85		      sta	target
-    419  fd7a		       a8		      tay
-    420  fd7b		       68		      pla
-    421  fd7c		       99 8c 00 	      sta	board,y
-    422  fd7f		       68		      pla
-    423  fd80		       85 83		      sta	total
-    424  fd82		       68		      pla
-    425  fd83		       85 82		      sta	offset
-    426  fd85		       90 06		      bcc	sr18
-    427  fd87		       68		      pla
-    428  fd88		       68		      pla
-    429  fd89		       8a		      txa		; Save current best movement
-    430  fd8a		       48		      pha
-    431  fd8b		       98		      tya
-    432  fd8c		       48		      pha
-    433  fd8d
-    434  fd8d		       b5 8c	   sr18       lda	board,x
-    435  fd8f		       29 07		      and	#7
-    436  fd91		       c9 01		      cmp	#1	; Was it pawn?
-    437  fd93		       f0 0c		      beq	sr16	; Yes, end sequence, choose next movement
-    438  fd95		       c9 05		      cmp	#5	; Knight or king?
-    439  fd97		       b0 08		      bcs	sr16	; End sequence, choose next movement
-    440  fd99		       b9 8c 00 	      lda	board,y	; To empty square?
-    441  fd9c		       d0 03		      bne	sr16
-    442  fd9e		       4c cd fc 	      jmp	sr9	; Yes, follow line of squares
-    443  fda1
-    444  fda1		       4c 6d fc    sr16       jmp	sr14
-    445  fda4
-    446  fda4					      if	mode = atari
-    447  fda4							;
-    448  fda4							; Set object in X
-    449  fda4							; A = X position
-    450  fda4							; First arg = Object to position (0=P0, 1=P1, 2=M0, 3=M1, 4=BALL)
-    451  fda4							; Exits with carry = 0, it can set V flag for X >= 128
-    452  fda4							;
-    453  fda4					      MAC	set_x_position
-    454  fda4					      sta	WSYNC	; 0- Start line synchro
-    455  fda4					      sec		; 2- Set carry flag (avoids it in loop)
-    456  fda4				   .AE2       sbc	#15	; 4- Uses required time dividing A by 15
-    457  fda4					      bcs	.AE2	; 6/7 - 11/16/21/26/31/36/41/46/51/56/61/66
-    458  fda4					      tay		; 8
-    459  fda4					      lda	fine_adjustment-$f1,y	; 13 - Eats 5 cycles crossing page
-    460  fda4					      sta	HMP0+{1}
-    461  fda4					      nop
-    462  fda4					      sta	RESP0+{1}	; 21/26/31/36/41/46/51/56/61/66/71 - "big" positioning
-    463  fda4					      ENDM
-    464  fda4
-    465  fda4							;
-    466  fda4							; Display kernel
-    467  fda4							;
-    468  fda4				   kernel
-    469  fda4		       a9 00		      lda	#$00
-    470  fda6		       85 09		      sta	COLUBK	; Background color
-    471  fda8
-    472  fda8							; VERTICAL_SYNC
-    473  fda8		       a2 02		      ldx	#2
-    474  fdaa		       86 00		      stx	VSYNC	; Start vertical synchro
-    475  fdac		       86 02		      stx	WSYNC	; Wait for 3 lines
-    476  fdae		       86 02		      stx	WSYNC
-    477  fdb0		       86 02		      stx	WSYNC
-    478  fdb2							;
-    479  fdb2		       a2 2b		      ldx	#43
-    480  fdb4		       8e 96 02 	      stx	TIM64T
-    481  fdb7		       85 00		      sta	VSYNC	; Stop vertical synchro
-    482  fdb9		       85 1b		      sta	GRP0
-    483  fdbb		       85 1c		      sta	GRP1
-    484  fdbd		       a9 70		      lda	#color_black_square
-    485  fdbf		       85 09		      sta	COLUBK	; Background color
-    486  fdc1		       a9 35		      lda	#$35
-    487  fdc3		       85 04		      sta	NUSIZ0	; Size of player/missile 0
-    488  fdc5		       85 05		      sta	NUSIZ1	; Size of player/missile 1
-    489  fdc7		       a9 74		      lda	#color_white_square
-    490  fdc9		       85 08		      sta	COLUPF	; Color of playfield
-    491  fdcb		       a5 87		      lda	cursorx	; Get X-position of cursor and set up missile 0
-    492  fdcd		       0a		      asl
-    493  fdce		       0a		      asl
-    494  fdcf		       85 80		      sta	even
-    495  fdd1		       0a		      asl
-    496  fdd2		       0a		      asl
-    497  fdd3		       65 80		      adc	even	; Can set V flag for eighth square (cursorx = 7)
-    498  fdd5		       69 0e		      adc	#14
-    499  fdd7		       c9 0e		      cmp	#14
-    500  fdd9		       d0 02		      bne	*+4
-    501  fddb		       e9 03		      sbc	#3
+    381  fd3d				  -	      else
+    382  fd3d				  -	      cpx	#255-10*2+1	; Depth limit (1-ply)
+    383  fd3d					      endif
+    384  fd3d		       90 22		      bcc	sr22
+    385  fd3f		       48		      pha
+    386  fd40		       a5 80		      lda	score	; Current score
+    387  fd42		       48		      pha
+    388  fd43		       a6 84		      ldx	origin
+    389  fd45		       a4 85		      ldy	target
+    390  fd47		       20 87 fc 	      jsr	sr28	; Do move
+    391  fd4a		       a5 81		      lda	side
+    392  fd4c		       49 08		      eor	#8	; Change side
+    393  fd4e		       85 81		      sta	side
+    394  fd50		       20 a3 fc 	      jsr	play
+    395  fd53		       a5 81		      lda	side
+    396  fd55		       49 08		      eor	#8	; Change side
+    397  fd57		       85 81		      sta	side
+    398  fd59		       68		      pla
+    399  fd5a		       aa		      tax		; Current score in x
+    400  fd5b		       68		      pla
+    401  fd5c		       38		      sec		; Take capture score and substract adversary score
+    402  fd5d		       e5 80		      sbc	score
+    403  fd5f		       86 80		      stx	score	; Restore current score
+    404  fd61		       c5 80	   sr22       cmp	score	; Better score?
+    405  fd63		       18		      clc
+    406  fd64		       30 0c		      bmi	sr23	; No, jump
+    407  fd66		       d0 07		      bne	sr33	; Better score? yes, jump
+    408  fd68		       a5 86		      lda	frame	; Equal score, randomize move
+    409  fd6a		       6a		      ror
+    410  fd6b		       6a		      ror
+    411  fd6c		       4c 72 fd 	      jmp	sr23	; No need to update score but carry = 1 will update move
+    412  fd6f							;bcc sr23
+    413  fd6f							;bcs sr23
+    414  fd6f		       85 80	   sr33       sta	score	; Update score
+    415  fd71		       38		      sec
+    416  fd72		       68	   sr23       pla		; Restore board
+    417  fd73		       aa		      tax
+    418  fd74		       68		      pla
+    419  fd75		       95 8c		      sta	board,x
+    420  fd77		       68		      pla
+    421  fd78		       85 85		      sta	target
+    422  fd7a		       a8		      tay
+    423  fd7b		       68		      pla
+    424  fd7c		       99 8c 00 	      sta	board,y
+    425  fd7f		       68		      pla
+    426  fd80		       85 83		      sta	total
+    427  fd82		       68		      pla
+    428  fd83		       85 82		      sta	offset
+    429  fd85		       90 06		      bcc	sr18
+    430  fd87		       68		      pla
+    431  fd88		       68		      pla
+    432  fd89		       8a		      txa		; Save current best movement
+    433  fd8a		       48		      pha
+    434  fd8b		       98		      tya
+    435  fd8c		       48		      pha
+    436  fd8d
+    437  fd8d		       b5 8c	   sr18       lda	board,x
+    438  fd8f		       29 07		      and	#7
+    439  fd91		       c9 01		      cmp	#1	; Was it pawn?
+    440  fd93		       f0 0c		      beq	sr16	; Yes, end sequence, choose next movement
+    441  fd95		       c9 05		      cmp	#5	; Knight or king?
+    442  fd97		       b0 08		      bcs	sr16	; End sequence, choose next movement
+    443  fd99		       b9 8c 00 	      lda	board,y	; To empty square?
+    444  fd9c		       d0 03		      bne	sr16
+    445  fd9e		       4c cd fc 	      jmp	sr9	; Yes, follow line of squares
+    446  fda1
+    447  fda1		       4c 6d fc    sr16       jmp	sr14
+    448  fda4
+    449  fda4					      if	mode = atari
+    450  fda4							;
+    451  fda4							; Set object in X
+    452  fda4							; A = X position
+    453  fda4							; First arg = Object to position (0=P0, 1=P1, 2=M0, 3=M1, 4=BALL)
+    454  fda4							; Exits with carry = 0, it can set V flag for X >= 128
+    455  fda4							;
+    456  fda4					      MAC	set_x_position
+    457  fda4					      sta	WSYNC	; 0- Start line synchro
+    458  fda4					      sec		; 2- Set carry flag (avoids it in loop)
+    459  fda4				   .AE2       sbc	#15	; 4- Uses required time dividing A by 15
+    460  fda4					      bcs	.AE2	; 6/7 - 11/16/21/26/31/36/41/46/51/56/61/66
+    461  fda4					      tay		; 8
+    462  fda4					      lda	fine_adjustment-$f1,y	; 13 - Eats 5 cycles crossing page
+    463  fda4					      sta	HMP0+{1}
+    464  fda4					      nop
+    465  fda4					      sta	RESP0+{1}	; 21/26/31/36/41/46/51/56/61/66/71 - "big" positioning
+    466  fda4					      ENDM
+    467  fda4
+    468  fda4							;
+    469  fda4							; Display kernel
+    470  fda4							;
+    471  fda4				   kernel
+    472  fda4		       a9 00		      lda	#$00
+    473  fda6		       85 09		      sta	COLUBK	; Background color
+    474  fda8
+    475  fda8							; VERTICAL_SYNC
+    476  fda8		       a2 02		      ldx	#2
+    477  fdaa		       86 00		      stx	VSYNC	; Start vertical synchro
+    478  fdac		       86 02		      stx	WSYNC	; Wait for 3 lines
+    479  fdae		       86 02		      stx	WSYNC
+    480  fdb0		       86 02		      stx	WSYNC
+    481  fdb2							;
+    482  fdb2		       a2 2b		      ldx	#43
+    483  fdb4		       8e 96 02 	      stx	TIM64T
+    484  fdb7		       85 00		      sta	VSYNC	; Stop vertical synchro
+    485  fdb9		       85 1b		      sta	GRP0
+    486  fdbb		       85 1c		      sta	GRP1
+    487  fdbd		       a9 70		      lda	#color_black_square
+    488  fdbf		       85 09		      sta	COLUBK	; Background color
+    489  fdc1		       a9 35		      lda	#$35
+    490  fdc3		       85 04		      sta	NUSIZ0	; Size of player/missile 0
+    491  fdc5		       85 05		      sta	NUSIZ1	; Size of player/missile 1
+    492  fdc7		       a9 74		      lda	#color_white_square
+    493  fdc9		       85 08		      sta	COLUPF	; Color of playfield
+    494  fdcb		       a5 87		      lda	cursorx	; Get X-position of cursor and set up missile 0
+    495  fdcd		       0a		      asl
+    496  fdce		       0a		      asl
+    497  fdcf		       85 80		      sta	even
+    498  fdd1		       0a		      asl
+    499  fdd2		       0a		      asl
+    500  fdd3		       65 80		      adc	even	; Can set V flag for eighth square (cursorx = 7)
+    501  fdd5		       69 0e		      adc	#14
+    502  fdd7		       c9 0e		      cmp	#14
+    503  fdd9		       d0 02		      bne	*+4
+    504  fddb		       e9 03		      sbc	#3
       0  fddd					      set_x_position	2
       1  fddd		       85 02		      sta	WSYNC
       2  fddf		       38		      sec
@@ -510,18 +513,18 @@
       7  fde8		       85 22		      sta	HMP0+2
       8  fdea		       ea		      nop
       9  fdeb		       85 12		      sta	RESP0+2
-    503  fded		       a5 86		      lda	frame	; Update 2 columns of chessboard per frame
-    504  fdef		       29 03		      and	#3
-    505  fdf1		       0a		      asl
-    506  fdf2		       0a		      asl
-    507  fdf3		       85 80		      sta	even
-    508  fdf5		       0a		      asl
-    509  fdf6		       0a		      asl
-    510  fdf7		       65 80		      adc	even
-    511  fdf9		       aa		      tax		; One column for player 0
-    512  fdfa		       d0 02		      bne	*+4
-    513  fdfc		       e9 02		      sbc	#2
-    514  fdfe		       69 08		      adc	#8
+    506  fded		       a5 86		      lda	frame	; Update 2 columns of chessboard per frame
+    507  fdef		       29 03		      and	#3
+    508  fdf1		       0a		      asl
+    509  fdf2		       0a		      asl
+    510  fdf3		       85 80		      sta	even
+    511  fdf5		       0a		      asl
+    512  fdf6		       0a		      asl
+    513  fdf7		       65 80		      adc	even
+    514  fdf9		       aa		      tax		; One column for player 0
+    515  fdfa		       d0 02		      bne	*+4
+    516  fdfc		       e9 02		      sbc	#2
+    517  fdfe		       69 08		      adc	#8
       0  fe00					      set_x_position	0
       1  fe00		       85 02		      sta	WSYNC
       2  fe02		       38		      sec
@@ -532,9 +535,9 @@
       7  fe0b		       85 20		      sta	HMP0+0
       8  fe0d		       ea		      nop
       9  fe0e		       85 10		      sta	RESP0+0
-    516  fe10		       8a		      txa
-    517  fe11							;clc		 ; Carry zero already
-    518  fe11		       69 58		      adc	#88	; One column for player 1, can set V flag
+    519  fe10		       8a		      txa
+    520  fe11							;clc		 ; Carry zero already
+    521  fe11		       69 58		      adc	#88	; One column for player 1, can set V flag
       0  fe13					      set_x_position	1
       1  fe13		       85 02		      sta	WSYNC
       2  fe15		       38		      sec
@@ -545,343 +548,344 @@
       7  fe1e		       85 21		      sta	HMP0+1
       8  fe20		       ea		      nop
       9  fe21		       85 11		      sta	RESP0+1
-    520  fe23		       85 02		      sta	WSYNC
-    521  fe25		       85 2a		      sta	HMOVE	; Fine adjustment for all set_x_position
-    522  fe27
-    523  fe27				   wait_vblank
-    524  fe27		       ad 84 02 	      lda	INTIM
-    525  fe2a		       d0 fb		      bne	wait_vblank
-    526  fe2c							;
-    527  fe2c							; Start of graphics
-    528  fe2c							;
-    529  fe2c		       85 02		      sta	WSYNC
-    530  fe2e		       85 01		      sta	VBLANK
-    531  fe30		       85 80		      sta	even	; Now uses like row counter, start at zero
-    532  fe32		       a5 86		      lda	frame	; Board position per frame
-    533  fe34		       29 03		      and	#3
-    534  fe36		       aa	   ds0	      tax
-    535  fe37		       85 02	   ds1	      sta	WSYNC	; Row 0
-    536  fe39		       a5 80		      lda	even	; Squares configuration over board
-    537  fe3b		       4a		      lsr
-    538  fe3c		       90 0a		      bcc	ds6
-    539  fe3e		       a9 00		      lda	#$00
-    540  fe40		       85 0d		      sta	PF0
-    541  fe42		       a0 7c		      ldy	#$7c
-    542  fe44		       a9 f8		      lda	#$f8
-    543  fe46		       d0 08		      bne	ds7
-    544  fe48
-    545  fe48		       a9 f0	   ds6	      lda	#$f0
-    546  fe4a		       85 0d		      sta	PF0
-    547  fe4c		       a0 83		      ldy	#$83
-    548  fe4e		       a9 07		      lda	#$07
-    549  fe50		       84 0e	   ds7	      sty	PF1
-    550  fe52		       85 0f		      sta	PF2
-    551  fe54		       b5 8c		      lda	board,x	; Check color for the two pieces
-    552  fe56		       29 08		      and	#8
-    553  fe58		       f0 02		      beq	ds4
-    554  fe5a		       a9 26		      lda	#color_white^color_black	; White for white pieces
-    555  fe5c		       49 28	   ds4	      eor	#color_black	; Green for black pieces
-    556  fe5e		       85 06		      sta	COLUP0
-    557  fe60		       b5 90		      lda	board+4,x
-    558  fe62		       29 08		      and	#8
-    559  fe64		       f0 02		      beq	ds5
-    560  fe66		       a9 26		      lda	#color_white^color_black	; White for white pieces
-    561  fe68		       49 28	   ds5	      eor	#color_black	; Green for black pieces
-    562  fe6a		       85 07		      sta	COLUP1
-    563  fe6c		       85 02		      sta	WSYNC	; Row 1
-    564  fe6e		       a5 80		      lda	even	; Check if row...
-    565  fe70		       c5 88		      cmp	cursory	; ...equals row of cursor
-    566  fe72		       08		      php		; Save Z flag...
-    567  fe73		       68		      pla		; ...so it goes to bit 1
-    568  fe74		       85 1d		      sta	ENAM0	; Enable missile if at right Y position
-    569  fe76		       b5 8c		      lda	board,x	; Setup pointers to bitmaps for two pieces
-    570  fe78		       29 07		      and	#7
-    571  fe7a		       0a		      asl
-    572  fe7b		       0a		      asl
-    573  fe7c		       0a		      asl
-    574  fe7d		       85 82		      sta	bitmap0
-    575  fe7f		       b5 90		      lda	board+4,x
-    576  fe81		       29 07		      and	#7
-    577  fe83		       0a		      asl
-    578  fe84		       0a		      asl
-    579  fe85		       0a		      asl		; //Carry is zero after this instruction
-    580  fe86		       85 83		      sta	bitmap1
-    581  fe88		       8a		      txa
-    582  fe89		       48		      pha
-    583  fe8a		       a0 07		      ldy	#7	; Process the 7 lines of bitmap
-    584  fe8c		       85 02	   ds3	      sta	WSYNC	; Row 2/5/8/11/14/17/20
-    585  fe8e		       a6 82		      ldx	bitmap0
-    586  fe90		       bd 0f ff 	      lda	pieces,x
-    587  fe93		       85 1b		      sta	GRP0
-    588  fe95		       a6 83		      ldx	bitmap1
-    589  fe97		       bd 0f ff 	      lda	pieces,x
-    590  fe9a		       85 1c		      sta	GRP1
-    591  fe9c		       85 02		      sta	WSYNC
-    592  fe9e		       85 02		      sta	WSYNC
-    593  fea0		       e6 82		      inc	bitmap0
-    594  fea2		       e6 83		      inc	bitmap1
-    595  fea4		       88		      dey
-    596  fea5		       d0 e5		      bne	ds3
-    597  fea7		       84 1d		      sty	ENAM0	; Disable cursor
-    598  fea9		       e6 80		      inc	even	; Increase current row
-    599  feab		       68		      pla
-    600  feac							;clc		  ; Carry is still zero//
-    601  feac		       69 0a		      adc	#10	; Next row of board
-    602  feae		       c9 50		      cmp	#80
-    603  feb0		       90 84		      bcc	ds0
-    604  feb2
-    605  feb2							;
-    606  feb2							; End of graphics (204 lines)
-    607  feb2							;
-    608  feb2		       a9 02		      lda	#2
-    609  feb4		       85 02		      sta	WSYNC
-    610  feb6		       85 01		      sta	VBLANK
-    611  feb8
-    612  feb8							;
-    613  feb8							; Start overscan timer
-    614  feb8							;
-    615  feb8		       a9 2b		      lda	#43	; 37 lines * 76 = 2812 cycles / 64 = 43.9375
-    616  feba		       8d 96 02 	      sta	TIM64T
-    617  febd				   wait_overscan
-    618  febd		       ad 84 02 	      lda	INTIM
-    619  fec0		       d0 fb		      bne	wait_overscan
-    620  fec2		       85 02		      sta	WSYNC
-    621  fec4		       85 0d		      sta	PF0
-    622  fec6		       85 0e		      sta	PF1
-    623  fec8		       85 0f		      sta	PF2
-    624  feca		       85 02		      sta	WSYNC
-    625  fecc
-    626  fecc		       e6 86		      inc	frame
-    627  fece
-    628  fece		       60		      rts
-    629  fecf
+    523  fe23		       85 02		      sta	WSYNC
+    524  fe25		       85 2a		      sta	HMOVE	; Fine adjustment for all set_x_position
+    525  fe27
+    526  fe27				   wait_vblank
+    527  fe27		       ad 84 02 	      lda	INTIM
+    528  fe2a		       d0 fb		      bne	wait_vblank
+    529  fe2c							;
+    530  fe2c							; Start of graphics
+    531  fe2c							;
+    532  fe2c		       85 02		      sta	WSYNC
+    533  fe2e		       85 01		      sta	VBLANK
+    534  fe30		       85 80		      sta	even	; Now uses like row counter, start at zero
+    535  fe32		       a5 86		      lda	frame	; Board position per frame
+    536  fe34		       29 03		      and	#3
+    537  fe36		       aa	   ds0	      tax
+    538  fe37		       85 02	   ds1	      sta	WSYNC	; Row 0
+    539  fe39		       a5 80		      lda	even	; Squares configuration over board
+    540  fe3b		       4a		      lsr
+    541  fe3c		       90 0a		      bcc	ds6
+    542  fe3e		       a9 00		      lda	#$00
+    543  fe40		       85 0d		      sta	PF0
+    544  fe42		       a0 7c		      ldy	#$7c
+    545  fe44		       a9 f8		      lda	#$f8
+    546  fe46		       d0 08		      bne	ds7
+    547  fe48
+    548  fe48		       a9 f0	   ds6	      lda	#$f0
+    549  fe4a		       85 0d		      sta	PF0
+    550  fe4c		       a0 83		      ldy	#$83
+    551  fe4e		       a9 07		      lda	#$07
+    552  fe50		       84 0e	   ds7	      sty	PF1
+    553  fe52		       85 0f		      sta	PF2
+    554  fe54		       b5 8c		      lda	board,x	; Check color for the two pieces
+    555  fe56		       29 08		      and	#8
+    556  fe58		       f0 02		      beq	ds4
+    557  fe5a		       a9 26		      lda	#color_white^color_black	; White for white pieces
+    558  fe5c		       49 28	   ds4	      eor	#color_black	; Green for black pieces
+    559  fe5e		       85 06		      sta	COLUP0
+    560  fe60		       b5 90		      lda	board+4,x
+    561  fe62		       29 08		      and	#8
+    562  fe64		       f0 02		      beq	ds5
+    563  fe66		       a9 26		      lda	#color_white^color_black	; White for white pieces
+    564  fe68		       49 28	   ds5	      eor	#color_black	; Green for black pieces
+    565  fe6a		       85 07		      sta	COLUP1
+    566  fe6c		       85 02		      sta	WSYNC	; Row 1
+    567  fe6e		       a5 80		      lda	even	; Check if row...
+    568  fe70		       c5 88		      cmp	cursory	; ...equals row of cursor
+    569  fe72		       08		      php		; Save Z flag...
+    570  fe73		       68		      pla		; ...so it goes to bit 1
+    571  fe74		       85 1d		      sta	ENAM0	; Enable missile if at right Y position
+    572  fe76		       b5 8c		      lda	board,x	; Setup pointers to bitmaps for two pieces
+    573  fe78		       29 07		      and	#7
+    574  fe7a		       0a		      asl
+    575  fe7b		       0a		      asl
+    576  fe7c		       0a		      asl
+    577  fe7d		       85 82		      sta	bitmap0
+    578  fe7f		       b5 90		      lda	board+4,x
+    579  fe81		       29 07		      and	#7
+    580  fe83		       0a		      asl
+    581  fe84		       0a		      asl
+    582  fe85		       0a		      asl		; //Carry is zero after this instruction
+    583  fe86		       85 83		      sta	bitmap1
+    584  fe88		       8a		      txa
+    585  fe89		       48		      pha
+    586  fe8a		       a0 07		      ldy	#7	; Process the 7 lines of bitmap
+    587  fe8c		       85 02	   ds3	      sta	WSYNC	; Row 2/5/8/11/14/17/20
+    588  fe8e		       a6 82		      ldx	bitmap0
+    589  fe90		       bd 0f ff 	      lda	pieces,x
+    590  fe93		       85 1b		      sta	GRP0
+    591  fe95		       a6 83		      ldx	bitmap1
+    592  fe97		       bd 0f ff 	      lda	pieces,x
+    593  fe9a		       85 1c		      sta	GRP1
+    594  fe9c		       85 02		      sta	WSYNC
+    595  fe9e		       85 02		      sta	WSYNC
+    596  fea0		       e6 82		      inc	bitmap0
+    597  fea2		       e6 83		      inc	bitmap1
+    598  fea4		       88		      dey
+    599  fea5		       d0 e5		      bne	ds3
+    600  fea7		       84 1d		      sty	ENAM0	; Disable cursor
+    601  fea9		       e6 80		      inc	even	; Increase current row
+    602  feab		       68		      pla
+    603  feac							;clc		  ; Carry is still zero//
+    604  feac		       69 0a		      adc	#10	; Next row of board
+    605  feae		       c9 50		      cmp	#80
+    606  feb0		       90 84		      bcc	ds0
+    607  feb2
+    608  feb2							;
+    609  feb2							; End of graphics (204 lines)
+    610  feb2							;
+    611  feb2		       a9 02		      lda	#2
+    612  feb4		       85 02		      sta	WSYNC
+    613  feb6		       85 01		      sta	VBLANK
+    614  feb8
+    615  feb8							;
+    616  feb8							; Start overscan timer
+    617  feb8							;
+    618  feb8		       a9 2b		      lda	#43	; 37 lines * 76 = 2812 cycles / 64 = 43.9375
+    619  feba		       8d 96 02 	      sta	TIM64T
+    620  febd				   wait_overscan
+    621  febd		       ad 84 02 	      lda	INTIM
+    622  fec0		       d0 fb		      bne	wait_overscan
+    623  fec2		       85 02		      sta	WSYNC
+    624  fec4		       85 0d		      sta	PF0
+    625  fec6		       85 0e		      sta	PF1
+    626  fec8		       85 0f		      sta	PF2
+    627  feca		       85 02		      sta	WSYNC
+    628  fecc
+    629  fecc		       e6 86		      inc	frame
+    630  fece
+    631  fece		       60		      rts
+    632  fecf
  Free bytes section 1:  $31
-    630  fecf					      echo	"Free bytes section 1: ",$ff00-*
-    631  fecf
-    632  ff00					      org	$ff00
-    633  ff00				   fine_adjustment
-    634  ff00		       70		      .byte.b	$70	; -7 
-    635  ff01		       60		      .byte.b	$60	; -6 
-    636  ff02		       50		      .byte.b	$50	; -5
-    637  ff03		       40		      .byte.b	$40	; -4
-    638  ff04		       30		      .byte.b	$30	; -3
-    639  ff05		       20		      .byte.b	$20	; -2
-    640  ff06		       10		      .byte.b	$10	; -1
-    641  ff07		       00		      .byte.b	$00	; 0
-    642  ff08		       f0		      .byte.b	$f0	; +1
-    643  ff09		       e0		      .byte.b	$e0	; +2
-    644  ff0a		       d0		      .byte.b	$d0	; +3
-    645  ff0b		       c0		      .byte.b	$c0	; +4
-    646  ff0c		       b0		      .byte.b	$b0	; +5
-    647  ff0d		       a0		      .byte.b	$a0	; +6
-    648  ff0e		       90		      .byte.b	$90	; +7
-    649  ff0f
-    650  ff0f				   pieces
-    651  ff0f		       00 00 00 00*	      .byte.b	$00,$00,$00,$00,$00,$00,$00,$00
-    652  ff17		       00 18 3c 3c*	      .byte.b	$00,$18,$3c,$3c,$18,$3c,$00,$00
-    653  ff1f		       5a 7e 3c 3c*	      .byte.b	$5a,$7e,$3c,$3c,$7e,$7e,$00,$00
-    654  ff27		       18 3c 3c 3c*	      .byte.b	$18,$3c,$3c,$3c,$18,$66,$00,$00
-    655  ff2f		       5a 5a 24 3c*	      .byte.b	$5a,$5a,$24,$3c,$3c,$3c,$00,$00
-    656  ff37		       70 58 7c 6e*	      .byte.b	$70,$58,$7c,$6e,$1e,$3e,$00,$00
-    657  ff3f		       3c 6a 56 3c*	      .byte.b	$3c,$6a,$56,$3c,$3c,$3c,$00,$00
-    658  ff47
-    659  ff47							;
-    660  ff47							; Read a coordinate choosen by cursor
-    661  ff47							; Moves y to x, y contains new coordinate.
+    633  fecf					      echo	"Free bytes section 1: ",$ff00-*
+    634  fecf
+    635  ff00					      org	$ff00
+    636  ff00				   fine_adjustment
+    637  ff00		       70		      .byte.b	$70	; -7 
+    638  ff01		       60		      .byte.b	$60	; -6 
+    639  ff02		       50		      .byte.b	$50	; -5
+    640  ff03		       40		      .byte.b	$40	; -4
+    641  ff04		       30		      .byte.b	$30	; -3
+    642  ff05		       20		      .byte.b	$20	; -2
+    643  ff06		       10		      .byte.b	$10	; -1
+    644  ff07		       00		      .byte.b	$00	; 0
+    645  ff08		       f0		      .byte.b	$f0	; +1
+    646  ff09		       e0		      .byte.b	$e0	; +2
+    647  ff0a		       d0		      .byte.b	$d0	; +3
+    648  ff0b		       c0		      .byte.b	$c0	; +4
+    649  ff0c		       b0		      .byte.b	$b0	; +5
+    650  ff0d		       a0		      .byte.b	$a0	; +6
+    651  ff0e		       90		      .byte.b	$90	; +7
+    652  ff0f
+    653  ff0f				   pieces
+    654  ff0f		       00 00 00 00*	      .byte.b	$00,$00,$00,$00,$00,$00,$00,$00
+    655  ff17		       00 18 3c 3c*	      .byte.b	$00,$18,$3c,$3c,$18,$3c,$00,$00
+    656  ff1f		       5a 7e 3c 3c*	      .byte.b	$5a,$7e,$3c,$3c,$7e,$7e,$00,$00
+    657  ff27		       18 3c 3c 3c*	      .byte.b	$18,$3c,$3c,$3c,$18,$66,$00,$00
+    658  ff2f		       5a 5a 24 3c*	      .byte.b	$5a,$5a,$24,$3c,$3c,$3c,$00,$00
+    659  ff37		       70 58 7c 6e*	      .byte.b	$70,$58,$7c,$6e,$1e,$3e,$00,$00
+    660  ff3f		       3c 6a 56 3c*	      .byte.b	$3c,$6a,$56,$3c,$3c,$3c,$00,$00
+    661  ff47
     662  ff47							;
-    663  ff47				   read_coor
-    664  ff47		       98		      tya
-    665  ff48		       48		      pha
-    666  ff49		       20 97 ff 	      jsr	read_coor2
-    667  ff4c		       a8		      tay
-    668  ff4d		       68		      pla
-    669  ff4e		       aa		      tax
-    670  ff4f		       60		      rts
-    671  ff50
-    672  ff50		       a0 00	   rc5	      ldy	#0
-    673  ff52		       ad 80 02 	      lda	SWCHA	; Read current state of joystick
-    674  ff55		       85 80		      sta	even
-    675  ff57		       aa		      tax
-    676  ff58		       45 89		      eor	pSWCHA
-    677  ff5a		       86 89		      stx	pSWCHA
-    678  ff5c		       49 ff		      eor	#$ff
-    679  ff5e		       05 80		      ora	even	; Disable unchanged directions
-    680  ff60		       30 0a		      bmi	rc0	; Jump if not going right
-    681  ff62		       a6 87		      ldx	cursorx
-    682  ff64		       e0 07		      cpx	#7
-    683  ff66		       f0 04		      beq	rc0
-    684  ff68		       e6 87		      inc	cursorx
-    685  ff6a		       a0 08		      ldy	#8
-    686  ff6c
-    687  ff6c		       2a	   rc0	      rol		; Jump if not going left
-    688  ff6d		       30 08		      bmi	rc1
-    689  ff6f		       a6 87		      ldx	cursorx
-    690  ff71		       f0 04		      beq	rc1
-    691  ff73		       c6 87		      dec	cursorx
-    692  ff75		       a0 08		      ldy	#8
-    693  ff77
-    694  ff77		       2a	   rc1	      rol		; Jump if not going down
-    695  ff78		       30 0a		      bmi	rc2
-    696  ff7a		       a6 88		      ldx	cursory
-    697  ff7c		       e0 07		      cpx	#7
-    698  ff7e		       f0 04		      beq	rc2
-    699  ff80		       e6 88		      inc	cursory
-    700  ff82		       a0 08		      ldy	#8
-    701  ff84
-    702  ff84		       2a	   rc2	      rol		; Jump if not going up
-    703  ff85		       30 08		      bmi	rc3
-    704  ff87		       a6 88		      ldx	cursory
-    705  ff89		       f0 04		      beq	rc3
-    706  ff8b		       c6 88		      dec	cursory
-    707  ff8d		       a0 08		      ldy	#8
-    708  ff8f		       a2 01	   rc3	      ldx	#$01
-    709  ff91		       86 15		      stx	AUDC0
-    710  ff93		       84 19		      sty	AUDV0
-    711  ff95		       84 17		      sty	AUDF0
-    712  ff97							;	 jmp read_coor2     ; Fall thru
-    713  ff97							;
-    714  ff97							; Read a coordinate in a
-    715  ff97							;
-    716  ff97				   read_coor2
-    717  ff97		       20 a4 fd 	      jsr	kernel
-    718  ff9a							;lda #0	    ; Kernel returns with a = 0
-    719  ff9a		       85 19		      sta	AUDV0
-    720  ff9c		       a5 0c		      lda	INPT4	; Read current state of button
-    721  ff9e		       85 80		      sta	even
-    722  ffa0		       aa		      tax
-    723  ffa1		       45 8a		      eor	pINPT4
-    724  ffa3		       86 8a		      stx	pINPT4
-    725  ffa5		       49 ff		      eor	#$ff
-    726  ffa7		       05 80		      ora	even	; Disable unchanged button
-    727  ffa9		       30 a5		      bmi	rc5	; Jump if button not pressed
-    728  ffab							;
-    729  ffab							; Computer plays
-    730  ffab							;
-    731  ffab		       a2 03		      ldx	#$03
-    732  ffad		       86 15		      stx	AUDC0
-    733  ffaf		       a2 08		      ldx	#$08
-    734  ffb1		       86 19		      stx	AUDV0
-    735  ffb3		       86 17		      stx	AUDF0
-    736  ffb5		       a5 88		      lda	cursory	; y_coor 
-    737  ffb7		       0a		      asl		; *2
-    738  ffb8		       0a		      asl		; *4
-    739  ffb9		       65 88		      adc	cursory	; *5
-    740  ffbb		       0a		      asl		; *10
-    741  ffbc		       65 87		      adc	cursorx	; + x_coor
-    742  ffbe		       60		      rts
-    743  ffbf
-    744  ffbf				  -	      else
-    745  ffbf				  -kernel
-    746  ffbf				  -	      jsr	headers
-    747  ffbf				  -	      lda	#$38
-    748  ffbf				  -	      sta	bitmap0
-    749  ffbf				  -	      ldx	#0
-    750  ffbf				  -kn0	      lda	bitmap0
-    751  ffbf				  -	      sta	$0f
-    752  ffbf				  -	      lda	#$20
-    753  ffbf				  -	      sta	$0f
-    754  ffbf				  -	      ldy	#8
-    755  ffbf				  -kn1	      txa
-    756  ffbf				  -	      pha
-    757  ffbf				  -	      lda	board,x
-    758  ffbf				  -	      tax
-    759  ffbf				  -	      lda	letters,x
-    760  ffbf				  -	      sta	$0f
-    761  ffbf				  -	      lda	#$20
-    762  ffbf				  -	      sta	$0f
-    763  ffbf				  -	      pla
-    764  ffbf				  -	      tax
-    765  ffbf				  -	      inx
-    766  ffbf				  -	      dey
-    767  ffbf				  -	      bne	kn1
-    768  ffbf				  -	      lda	bitmap0
-    769  ffbf				  -	      sta	$0f
-    770  ffbf				  -	      lda	#$0a
-    771  ffbf				  -	      sta	$0f
-    772  ffbf				  -	      dec	bitmap0
-    773  ffbf				  -	      inx
-    774  ffbf				  -	      inx
-    775  ffbf				  -	      cpx	#80
-    776  ffbf				  -	      bne	kn0
-    777  ffbf				  -	      jsr	headers
-    778  ffbf				  -	      rts
-    779  ffbf				  -
-    780  ffbf				  -headers
-    781  ffbf				  -	      ldx	#0
-    782  ffbf				  -kn2	      lda	header,x
-    783  ffbf				  -	      sta	$0f
-    784  ffbf				  -	      lda	#$20
-    785  ffbf				  -	      sta	$0f
-    786  ffbf				  -	      inx
-    787  ffbf				  -	      cpx	#9
-    788  ffbf				  -	      bne	kn2
-    789  ffbf				  -	      lda	#$0a
-    790  ffbf				  -	      sta	$0f
-    791  ffbf				  -	      rts
-    792  ffbf				  -
-    793  ffbf				  -header
-    794  ffbf				  -	      .byte	$20,$41,$42,$43,$44,$45,$46,$47
-    795  ffbf				  -	      .byte	$48
-    796  ffbf				  -
-    797  ffbf				  -letters
-    798  ffbf				  -	      .byte	$2e,$70,$72,$62,$71,$6e,$6b,$00
-    799  ffbf				  -	      .byte	$00,$50,$52,$42,$51,$4e,$4b
-    800  ffbf				  -
-    801  ffbf				  -			;
-    802  ffbf				  -			; Read a coordinate choosen by cursor
-    803  ffbf				  -			; Moves y to x, y contains new coordinate.
+    663  ff47							; Read a coordinate choosen by cursor
+    664  ff47							; Moves y to x, y contains new coordinate.
+    665  ff47							;
+    666  ff47				   read_coor
+    667  ff47		       98		      tya
+    668  ff48		       48		      pha
+    669  ff49		       20 97 ff 	      jsr	read_coor2
+    670  ff4c		       a8		      tay
+    671  ff4d		       68		      pla
+    672  ff4e		       aa		      tax
+    673  ff4f		       60		      rts
+    674  ff50
+    675  ff50		       a0 00	   rc5	      ldy	#0
+    676  ff52		       ad 80 02 	      lda	SWCHA	; Read current state of joystick
+    677  ff55		       85 80		      sta	even
+    678  ff57		       aa		      tax
+    679  ff58		       45 89		      eor	pSWCHA
+    680  ff5a		       86 89		      stx	pSWCHA
+    681  ff5c		       49 ff		      eor	#$ff
+    682  ff5e		       05 80		      ora	even	; Disable unchanged directions
+    683  ff60		       30 0a		      bmi	rc0	; Jump if not going right
+    684  ff62		       a6 87		      ldx	cursorx
+    685  ff64		       e0 07		      cpx	#7
+    686  ff66		       f0 04		      beq	rc0
+    687  ff68		       e6 87		      inc	cursorx
+    688  ff6a		       a0 08		      ldy	#8
+    689  ff6c
+    690  ff6c		       2a	   rc0	      rol		; Jump if not going left
+    691  ff6d		       30 08		      bmi	rc1
+    692  ff6f		       a6 87		      ldx	cursorx
+    693  ff71		       f0 04		      beq	rc1
+    694  ff73		       c6 87		      dec	cursorx
+    695  ff75		       a0 08		      ldy	#8
+    696  ff77
+    697  ff77		       2a	   rc1	      rol		; Jump if not going down
+    698  ff78		       30 0a		      bmi	rc2
+    699  ff7a		       a6 88		      ldx	cursory
+    700  ff7c		       e0 07		      cpx	#7
+    701  ff7e		       f0 04		      beq	rc2
+    702  ff80		       e6 88		      inc	cursory
+    703  ff82		       a0 08		      ldy	#8
+    704  ff84
+    705  ff84		       2a	   rc2	      rol		; Jump if not going up
+    706  ff85		       30 08		      bmi	rc3
+    707  ff87		       a6 88		      ldx	cursory
+    708  ff89		       f0 04		      beq	rc3
+    709  ff8b		       c6 88		      dec	cursory
+    710  ff8d		       a0 08		      ldy	#8
+    711  ff8f		       a2 01	   rc3	      ldx	#$01
+    712  ff91		       86 15		      stx	AUDC0
+    713  ff93		       84 19		      sty	AUDV0
+    714  ff95		       84 17		      sty	AUDF0
+    715  ff97							;	 jmp read_coor2     ; Fall thru
+    716  ff97							;
+    717  ff97							; Read a coordinate in a
+    718  ff97							;
+    719  ff97				   read_coor2
+    720  ff97		       20 a4 fd 	      jsr	kernel
+    721  ff9a							;lda #0	    ; Kernel returns with a = 0
+    722  ff9a		       85 19		      sta	AUDV0
+    723  ff9c		       a5 0c		      lda	INPT4	; Read current state of button
+    724  ff9e		       85 80		      sta	even
+    725  ffa0		       aa		      tax
+    726  ffa1		       45 8a		      eor	pINPT4
+    727  ffa3		       86 8a		      stx	pINPT4
+    728  ffa5		       49 ff		      eor	#$ff
+    729  ffa7		       05 80		      ora	even	; Disable unchanged button
+    730  ffa9		       30 a5		      bmi	rc5	; Jump if button not pressed
+    731  ffab							;
+    732  ffab							; Computer plays
+    733  ffab							;
+    734  ffab		       a2 03		      ldx	#$03
+    735  ffad		       86 15		      stx	AUDC0
+    736  ffaf		       a2 08		      ldx	#$08
+    737  ffb1		       86 19		      stx	AUDV0
+    738  ffb3		       86 17		      stx	AUDF0
+    739  ffb5		       a5 88		      lda	cursory	; y_coor 
+    740  ffb7		       0a		      asl		; *2
+    741  ffb8		       0a		      asl		; *4
+    742  ffb9		       65 88		      adc	cursory	; *5
+    743  ffbb		       0a		      asl		; *10
+    744  ffbc		       65 87		      adc	cursorx	; + x_coor
+    745  ffbe		       60		      rts
+    746  ffbf
+    747  ffbf				  -	      else
+    748  ffbf				  -kernel
+    749  ffbf				  -	      jsr	headers
+    750  ffbf				  -	      lda	#$38
+    751  ffbf				  -	      sta	bitmap0
+    752  ffbf				  -	      ldx	#0
+    753  ffbf				  -kn0	      lda	bitmap0
+    754  ffbf				  -	      sta	$0f
+    755  ffbf				  -	      lda	#$20
+    756  ffbf				  -	      sta	$0f
+    757  ffbf				  -	      ldy	#8
+    758  ffbf				  -kn1	      txa
+    759  ffbf				  -	      pha
+    760  ffbf				  -	      lda	board,x
+    761  ffbf				  -	      tax
+    762  ffbf				  -	      lda	letters,x
+    763  ffbf				  -	      sta	$0f
+    764  ffbf				  -	      lda	#$20
+    765  ffbf				  -	      sta	$0f
+    766  ffbf				  -	      pla
+    767  ffbf				  -	      tax
+    768  ffbf				  -	      inx
+    769  ffbf				  -	      dey
+    770  ffbf				  -	      bne	kn1
+    771  ffbf				  -	      lda	bitmap0
+    772  ffbf				  -	      sta	$0f
+    773  ffbf				  -	      lda	#$0a
+    774  ffbf				  -	      sta	$0f
+    775  ffbf				  -	      dec	bitmap0
+    776  ffbf				  -	      inx
+    777  ffbf				  -	      inx
+    778  ffbf				  -	      cpx	#80
+    779  ffbf				  -	      bne	kn0
+    780  ffbf				  -	      jsr	headers
+    781  ffbf				  -	      rts
+    782  ffbf				  -
+    783  ffbf				  -headers
+    784  ffbf				  -	      ldx	#0
+    785  ffbf				  -kn2	      lda	header,x
+    786  ffbf				  -	      sta	$0f
+    787  ffbf				  -	      lda	#$20
+    788  ffbf				  -	      sta	$0f
+    789  ffbf				  -	      inx
+    790  ffbf				  -	      cpx	#9
+    791  ffbf				  -	      bne	kn2
+    792  ffbf				  -	      lda	#$0a
+    793  ffbf				  -	      sta	$0f
+    794  ffbf				  -	      rts
+    795  ffbf				  -
+    796  ffbf				  -header
+    797  ffbf				  -	      .byte	$20,$41,$42,$43,$44,$45,$46,$47
+    798  ffbf				  -	      .byte	$48
+    799  ffbf				  -
+    800  ffbf				  -letters
+    801  ffbf				  -	      .byte	$2e,$70,$72,$62,$71,$6e,$6b,$00
+    802  ffbf				  -	      .byte	$00,$50,$52,$42,$51,$4e,$4b
+    803  ffbf				  -
     804  ffbf				  -			;
-    805  ffbf				  -read_coor
-    806  ffbf				  -	      tya
-    807  ffbf				  -	      pha
-    808  ffbf				  -rc0	      lda	$d011
-    809  ffbf				  -	      beq	rc0
-    810  ffbf				  -	      lda	$d010
-    811  ffbf				  -	      and	$0f
-    812  ffbf				  -	      sta	even
-    813  ffbf				  -	      dec	even
-    814  ffbf				  -rc1	      lda	$d011
-    815  ffbf				  -	      beq	rc1
-    816  ffbf				  -	      and	$0f
-    817  ffbf				  -	      sta	bitmap0
-    818  ffbf				  -	      lda	#$08
-    819  ffbf				  -	      sec
-    820  ffbf				  -	      sbc	bitmap0
-    821  ffbf				  -	      asl
-    822  ffbf				  -	      sta	bitmap0
-    823  ffbf				  -	      asl
-    824  ffbf				  -	      asl
-    825  ffbf				  -	      adc	bitmap0
-    826  ffbf				  -	      adc	even
-    827  ffbf				  -	      ldy	even
-    828  ffbf				  -	      pla
-    829  ffbf				  -	      tax
-    830  ffbf				  -	      rts
-    831  ffbf				  -
-    832  ffbf				  -
-    833  ffbf					      endif
-    834  ffbf
-    835  ffbf				   initial
-    836  ffbf		       02 05 03 04*	      .byte.b	$02,$05,$03,$04,$06,$03,$05,$02
-    837  ffc7
-    838  ffc7				   scores
-    839  ffc7		       00 01 05 03*	      .byte.b	0,1,5,3,9,3
-    840  ffcd
-    841  ffcd				   offsets
-    842  ffcd		       10 14 08 0c*	      .byte.b	16,20,8,12,8,0,8
-    843  ffd4
-    844  ffd4				   displacement
-    845  ffd4		       eb ed f4 f8*	      .byte.b	-21,-19,-12,-8,8,12,19,21
-    846  ffdc		       f6 0a ff 01	      .byte.b	-10,10,-1,1
-    847  ffe0		       09 0b f7 f5	      .byte.b	9,11,-9,-11
-    848  ffe4		       f5 f7 f6 ec	      .byte.b	-11,-9,-10,-20
-    849  ffe8		       09 0b 0a 14	      .byte.b	9,11,10,20
-    850  ffec
-    851  ffec					      if	mode = atari
+    805  ffbf				  -			; Read a coordinate choosen by cursor
+    806  ffbf				  -			; Moves y to x, y contains new coordinate.
+    807  ffbf				  -			;
+    808  ffbf				  -read_coor
+    809  ffbf				  -	      tya
+    810  ffbf				  -	      pha
+    811  ffbf				  -rc0	      lda	$d011
+    812  ffbf				  -	      beq	rc0
+    813  ffbf				  -	      lda	$d010
+    814  ffbf				  -	      and	$0f
+    815  ffbf				  -	      sta	even
+    816  ffbf				  -	      dec	even
+    817  ffbf				  -rc1	      lda	$d011
+    818  ffbf				  -	      beq	rc1
+    819  ffbf				  -	      lda	$d010
+    820  ffbf				  -	      and	$0f
+    821  ffbf				  -	      sta	bitmap0
+    822  ffbf				  -	      lda	#$08
+    823  ffbf				  -	      sec
+    824  ffbf				  -	      sbc	bitmap0
+    825  ffbf				  -	      asl
+    826  ffbf				  -	      sta	bitmap0
+    827  ffbf				  -	      asl
+    828  ffbf				  -	      asl
+    829  ffbf				  -	      adc	bitmap0
+    830  ffbf				  -	      adc	even
+    831  ffbf				  -	      ldy	even
+    832  ffbf				  -	      pla
+    833  ffbf				  -	      tax
+    834  ffbf				  -	      rts
+    835  ffbf				  -
+    836  ffbf				  -
+    837  ffbf					      endif
+    838  ffbf
+    839  ffbf				   initial
+    840  ffbf		       02 05 03 04*	      .byte.b	$02,$05,$03,$04,$06,$03,$05,$02
+    841  ffc7
+    842  ffc7				   scores
+    843  ffc7		       00 01 05 03*	      .byte.b	0,1,5,3,9,3
+    844  ffcd
+    845  ffcd				   offsets
+    846  ffcd		       10 14 08 0c*	      .byte.b	16,20,8,12,8,0,8
+    847  ffd4
+    848  ffd4				   displacement
+    849  ffd4		       eb ed f4 f8*	      .byte.b	-21,-19,-12,-8,8,12,19,21
+    850  ffdc		       f6 0a ff 01	      .byte.b	-10,10,-1,1
+    851  ffe0		       09 0b f7 f5	      .byte.b	9,11,-9,-11
+    852  ffe4		       f5 f7 f6 ec	      .byte.b	-11,-9,-10,-20
+    853  ffe8		       09 0b 0a 14	      .byte.b	9,11,10,20
+    854  ffec
+    855  ffec					      if	mode = atari
  Free bytes section 2:  $10
-    852  ffec					      echo	"Free bytes section 2: ",$fffc-*
-    853  ffec
-    854  fffc					      org	$fffc
-    855  fffc		       00 fc		      .word.w	START	; RESET
-    856  fffe		       00 fc		      .word.w	START	; BRK
-    857  10000					       endif
+    856  ffec					      echo	"Free bytes section 2: ",$fffc-*
+    857  ffec
+    858  fffc					      org	$fffc
+    859  fffc		       00 fc		      .word.w	START	; RESET
+    860  fffe		       00 fc		      .word.w	START	; BRK
+    861  10000					       endif
