@@ -807,32 +807,29 @@ letters:
         ;
 read_coor:
         tya
-        pha
-rc0:    lda $d011
-        beq rc0
-        lda $d010
-        and $0f
-        sta even
-        dec even
-rc1:    lda $d011
-        beq rc1
-        lda $d010
-        and $0f
-        sta bitmap0
-        lda #$08
-        sec
-        sbc bitmap0
-        asl
-        sta bitmap0
-        asl
-        asl
-        adc bitmap0
-        adc even
-        ldy even
-        pla
         tax
+        jsr readkey
+        sta even
+        jsr readkey
+        eor #$ff    ; 1-8 converted to $fe-$f7
+        clc
+        adc #$09    ; row
+        asl         ; x2
+        sta bitmap0
+        asl         ; x4
+        asl         ; x8
+        adc bitmap0 ; x10
+        adc even    ; +column
+        tay
+        dey
         rts
 
+readkey:
+        lda $d011
+        beq readkey
+        lda $d010
+        and #$0f
+        rts
 
     endif
 

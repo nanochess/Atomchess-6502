@@ -836,56 +836,53 @@
     807  ffbf				  -			;
     808  ffbf				  -read_coor
     809  ffbf				  -	      tya
-    810  ffbf				  -	      pha
-    811  ffbf				  -rc0	      lda	$d011
-    812  ffbf				  -	      beq	rc0
-    813  ffbf				  -	      lda	$d010
-    814  ffbf				  -	      and	$0f
-    815  ffbf				  -	      sta	even
-    816  ffbf				  -	      dec	even
-    817  ffbf				  -rc1	      lda	$d011
-    818  ffbf				  -	      beq	rc1
-    819  ffbf				  -	      lda	$d010
-    820  ffbf				  -	      and	$0f
-    821  ffbf				  -	      sta	bitmap0
-    822  ffbf				  -	      lda	#$08
-    823  ffbf				  -	      sec
-    824  ffbf				  -	      sbc	bitmap0
-    825  ffbf				  -	      asl
-    826  ffbf				  -	      sta	bitmap0
-    827  ffbf				  -	      asl
-    828  ffbf				  -	      asl
-    829  ffbf				  -	      adc	bitmap0
-    830  ffbf				  -	      adc	even
-    831  ffbf				  -	      ldy	even
-    832  ffbf				  -	      pla
-    833  ffbf				  -	      tax
-    834  ffbf				  -	      rts
-    835  ffbf				  -
-    836  ffbf				  -
-    837  ffbf					      endif
-    838  ffbf
-    839  ffbf				   initial
-    840  ffbf		       02 05 03 04*	      .byte.b	$02,$05,$03,$04,$06,$03,$05,$02
-    841  ffc7
-    842  ffc7				   scores
-    843  ffc7		       00 01 05 03*	      .byte.b	0,1,5,3,9,3
-    844  ffcd
-    845  ffcd				   offsets
-    846  ffcd		       10 14 08 0c*	      .byte.b	16,20,8,12,8,0,8
-    847  ffd4
-    848  ffd4				   displacement
-    849  ffd4		       eb ed f4 f8*	      .byte.b	-21,-19,-12,-8,8,12,19,21
-    850  ffdc		       f6 0a ff 01	      .byte.b	-10,10,-1,1
-    851  ffe0		       09 0b f7 f5	      .byte.b	9,11,-9,-11
-    852  ffe4		       f5 f7 f6 ec	      .byte.b	-11,-9,-10,-20
-    853  ffe8		       09 0b 0a 14	      .byte.b	9,11,10,20
-    854  ffec
-    855  ffec					      if	mode = atari
+    810  ffbf				  -	      tax
+    811  ffbf				  -	      jsr	readkey
+    812  ffbf				  -	      sta	even
+    813  ffbf				  -	      jsr	readkey
+    814  ffbf				  -	      eor	#$ff	; 1-8 converted to $fe-$f7
+    815  ffbf				  -	      clc
+    816  ffbf				  -	      adc	#$09	; row
+    817  ffbf				  -	      asl		; x2
+    818  ffbf				  -	      sta	bitmap0
+    819  ffbf				  -	      asl		; x4
+    820  ffbf				  -	      asl		; x8
+    821  ffbf				  -	      adc	bitmap0	; x10
+    822  ffbf				  -	      adc	even	; +column
+    823  ffbf				  -	      tay
+    824  ffbf				  -	      dey
+    825  ffbf				  -	      rts
+    826  ffbf				  -
+    827  ffbf				  -readkey
+    828  ffbf				  -	      lda	$d011
+    829  ffbf				  -	      beq	readkey
+    830  ffbf				  -	      lda	$d010
+    831  ffbf				  -	      and	#$0f
+    832  ffbf				  -	      rts
+    833  ffbf				  -
+    834  ffbf					      endif
+    835  ffbf
+    836  ffbf				   initial
+    837  ffbf		       02 05 03 04*	      .byte.b	$02,$05,$03,$04,$06,$03,$05,$02
+    838  ffc7
+    839  ffc7				   scores
+    840  ffc7		       00 01 05 03*	      .byte.b	0,1,5,3,9,3
+    841  ffcd
+    842  ffcd				   offsets
+    843  ffcd		       10 14 08 0c*	      .byte.b	16,20,8,12,8,0,8
+    844  ffd4
+    845  ffd4				   displacement
+    846  ffd4		       eb ed f4 f8*	      .byte.b	-21,-19,-12,-8,8,12,19,21
+    847  ffdc		       f6 0a ff 01	      .byte.b	-10,10,-1,1
+    848  ffe0		       09 0b f7 f5	      .byte.b	9,11,-9,-11
+    849  ffe4		       f5 f7 f6 ec	      .byte.b	-11,-9,-10,-20
+    850  ffe8		       09 0b 0a 14	      .byte.b	9,11,10,20
+    851  ffec
+    852  ffec					      if	mode = atari
  Free bytes section 2:  $10
-    856  ffec					      echo	"Free bytes section 2: ",$fffc-*
-    857  ffec
-    858  fffc					      org	$fffc
-    859  fffc		       00 fc		      .word.w	START	; RESET
-    860  fffe		       00 fc		      .word.w	START	; BRK
-    861  10000					       endif
+    853  ffec					      echo	"Free bytes section 2: ",$fffc-*
+    854  ffec
+    855  fffc					      org	$fffc
+    856  fffc		       00 fc		      .word.w	START	; RESET
+    857  fffe		       00 fc		      .word.w	START	; BRK
+    858  10000					       endif
