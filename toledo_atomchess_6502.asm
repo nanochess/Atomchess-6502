@@ -157,6 +157,8 @@ pINPT4  = $8A        ; Previous value of INPT4
         ; Reused locations
 bitmap0 = $82        ; Index into bitmap (0)
 bitmap1 = $83        ; Index into bitmap (1)
+bitmap2 = $81        ; Index into bitmap (2)
+bitmap3 = $8b        ; Index into bitmap (3)
 even    = $80        ; Marks even/odd
 
 board   = $8c        ; 78 bytes used, there should be space for 12+12+10 bytes of stack
@@ -503,23 +505,6 @@ kernel:
         bne *+4
         sbc #3
         set_x_position 2
-        lda frame       ; Update 2 columns of chessboard per frame
-        and #3
-        asl
-        asl
-        sta even
-        asl
-        asl
-        adc even        
-        tax             ; One column for player 0
-        bne *+4
-        sbc #2
-        adc #8
-        set_x_position 0
-        txa
-        ;clc            ; Carry zero already
-        adc #88         ; One column for player 1, can set V flag
-        set_x_position 1
         sta WSYNC              
         sta HMOVE       ; Fine adjustment for all set_x_position
 
@@ -533,7 +518,7 @@ wait_vblank:
         sta VBLANK
         sta even        ; Now uses like row counter, start at zero
         lda frame       ; Board position per frame
-        and #3
+        lda #0
 ds0:    tax    
 ds1:    sta WSYNC       ; Row 0
         lda even        ; Squares configuration over board
@@ -551,59 +536,119 @@ ds6:    lda #$f0
         lda #$07
 ds7:    sty PF1
         sta PF2
-        lda board,x      ; Check color for the two pieces
-        and #8
-        beq ds4
-        lda #color_white^color_black         ; White for white pieces
-ds4:    eor #color_black         ; Green for black pieces
-        sta COLUP0
-        lda board+4,x
-        and #8
-        beq ds5
-        lda #color_white^color_black         ; White for white pieces
-ds5:    eor #color_black         ; Green for black pieces
-        sta COLUP1
+        lda board,x      ; Bitmap for piece
+        and #7
+        asl
+        asl
+        asl
+        sta bitmap0
         sta WSYNC        ; Row 1
         lda even         ; Check if row...
         cmp cursory      ; ...equals row of cursor
         php              ; Save Z flag...
         pla              ; ...so it goes to bit 1
         sta ENAM0        ; Enable missile if at right Y position
-        lda board,x      ; Setup pointers to bitmaps for two pieces
-        and #7
-        asl
-        asl
-        asl
-        sta bitmap0
         lda board+4,x
         and #7
         asl
         asl
         asl              ; //Carry is zero after this instruction
         sta bitmap1
-        txa
-        pha
-        ldy #7           ; Process the 7 lines of bitmap
-ds3:    sta WSYNC        ; Row 2/5/8/11/14/17/20
-        ldx bitmap0
-        lda pieces,x
-        sta GRP0
-        ldx bitmap1
-        lda pieces,x
-        sta GRP1
-        sta WSYNC       
         sta WSYNC
-        inc bitmap0
-        inc bitmap1
-        dey
-        bne ds3
-        sty ENAM0        ; Disable cursor
+        lda board+4,x      ; Bitmap for piece
+        and #7
+        asl
+        asl
+        asl
+        sta bitmap2
+        sta WSYNC
+        lda board+6,x      ; Bitmap for piece
+        and #7
+        asl
+        asl
+        asl
+        sta bitmap3
+        sta WSYNC        ; 0
+        lda frame        ; 3
+        lda frame        ; 6
+        lda frame        ; 9
+        lsr              ; 14
+        ldy #3           ; 12
+        bne ds9          ; 16
+        ldy #3           ; 18
+ds10:   dey              ; 20/25/30
+        bne ds10
+        jmp ds9
+
+ds9:    sta RESP0        ; 19
+        nop              ; 22
+        nop              ; 24
+        nop              ; 26
+        sta RESP1        ; 28
+        ldy #4           ; 31
+ds11:   dey              ; 33/38/43/48
+        bne ds11
+        nop              ; 52
+ds3:
+        ldy board,x      ; 54 Check color for the two pieces
+        lda pieces_color,y ; 58
+        sta COLUP0       ; 62
+        ldy board+4,x    ; 65 Check color for the two pieces
+        lda pieces_color,y ; 69
+        sta COLUP1       ; 73
+
+        lda bitmap0      ; 76->0
+        ldy bitmap0      ; 3
+        lda pieces,y     ; 6
+        sta GRP0         ; 10
+        ldy bitmap1      ; 13
+        lda pieces,y     ; 16
+        sta GRP1         ; 20
+        inc bitmap0      ; 23
+        inc bitmap1      ; 28
+        ldy board+2,x    ; 33 Check color for the two pieces
+        sta RESP0        ; 37
+        lda bitmap0      ; 40
+        lda bitmap0      ; 43
+        sta RESP1        ; 46
+        lda pieces_color,y ; 49
+        sta COLUP0         ; 53
+        ldy board+6,x      ; 56 Check color for the two pieces
+        lda pieces_color,y ; 60
+        sta COLUP1         ; 64
+        lda bitmap0        ; 67
+        lda bitmap0        ; 70
+        lda bitmap0        ; 73
+        lda bitmap0        ; 76->0       
+        ldy bitmap2        ; 3 
+        lda pieces,y       ; 6
+        sta GRP0           ; 10
+        ldy bitmap3        ; 13
+        lda bitmap3        ; 16
+        sta RESP0          ; 19
+        lda pieces,y       ; 22
+        sec                ; 26
+        sta RESP1          ; 28
+        sta GRP1           ; 31
+        inc bitmap2        ; 34
+        inc bitmap3        ; 39
+        lda bitmap0        ; 44
+        and #7             ; 47
+        sbc #7             ; 49
+        bne ds3            ; 51 + 3
+        sta ENAM0        ; Disable cursor
+        sta WSYNC
+        sta WSYNC
+        sta WSYNC
+        sta WSYNC
         inc even         ; Increase current row
-        pla
-        ;clc             ; Carry is still zero//
+        txa
+        clc             ; Carry is still zero//
         adc #10          ; Next row of board
         cmp #80
-        bcc ds0
+        bcs ds8
+        jmp ds0
+ds8:
 
         ;
         ; End of graphics (204 lines)
@@ -625,14 +670,24 @@ wait_overscan:
         sta PF1
         sta PF2
         sta WSYNC
+        sta side               ; Black side plays
         
         inc frame
 
         rts
 
-        echo "Free bytes section 1: ",$ff00-*
+        echo "Free bytes section 1: ",$ff20-*
 
-        org $ff00       
+        org $ff20       
+pieces:
+        .byte $00,$00,$00,$00,$00,$00,$00,$00
+        .byte $00,$18,$3c,$3c,$18,$3c,$00,$00
+        .byte $5a,$7e,$3c,$3c,$7e,$7e,$00,$00
+        .byte $18,$3c,$3c,$3c,$18,$66,$00,$00
+        .byte $5a,$5a,$24,$3c,$3c,$3c,$00,$00
+        .byte $70,$58,$7c,$6e,$1e,$3e,$00,$00
+        .byte $3c,$6a,$56,$3c,$3c,$3c,$00,$00
+
 fine_adjustment:
         .byte $70       ; -7 
         .byte $60       ; -6 
@@ -650,15 +705,6 @@ fine_adjustment:
         .byte $a0       ; +6
         .byte $90       ; +7
 
-pieces:
-        .byte $00,$00,$00,$00,$00,$00,$00,$00
-        .byte $00,$18,$3c,$3c,$18,$3c,$00,$00
-        .byte $5a,$7e,$3c,$3c,$7e,$7e,$00,$00
-        .byte $18,$3c,$3c,$3c,$18,$66,$00,$00
-        .byte $5a,$5a,$24,$3c,$3c,$3c,$00,$00
-        .byte $70,$58,$7c,$6e,$1e,$3e,$00,$00
-        .byte $3c,$6a,$56,$3c,$3c,$3c,$00,$00
-
         ;
         ; Read a coordinate choosen by cursor
         ; Moves y to x, y contains new coordinate.
@@ -673,6 +719,7 @@ read_coor:
         rts
 
 rc5:    ldy #0
+    if 0
         lda SWCHA          ; Read current state of joystick
         sta even
         tax
@@ -708,7 +755,9 @@ rc2:    rol                ; Jump if not going up
         beq rc3
         dec cursory
         ldy #8
-rc3:    ldx #$01
+rc3:    
+    endif
+        ldx #$01
         stx AUDC0
         sty AUDV0
         sty AUDF0
@@ -850,6 +899,13 @@ displacement:
         .byte 9,11,10,20
 
     if mode = atari 
+
+pieces_color:
+        .byte color_black, color_black, color_black, color_black
+        .byte color_black, color_black, color_black, color_black
+        .byte color_white, color_white, color_white, color_white
+        .byte color_white, color_white, color_white
+
         echo "Free bytes section 2: ",$fffc-*
 
         org $fffc
