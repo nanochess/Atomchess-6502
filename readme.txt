@@ -51,11 +51,15 @@ The video display processor (TIA) works displaying line-by-line based on input r
 
 If the CPU doesn't update the TIA in time, essentially we lose TV synchro, but to simplify the game, the AI engine works without updating the TIA.
 
-The TIA can show only a 40 columns playfield (background), 2 bitmap objects per line (each one can be repeated upto 3 times) and 3 pixel objects. The playfield is used for the chessboard squares, given only 2 different bitmap objects can be shown in a line the board and it have "big" graphics, it shows alternate columns in 4 frames, this sustains for 15hz flicker.
+The TIA can show only a 40 columns playfield (background), 2 bitmap objects per line (each one can be repeated upto 3 times) and 3 pixel objects.
+
+The playfield is used to display the chessboard checkered pattern. Given there are only available 2 bitmap objects, the previous version of Atomchess displayed two columns of board on each frame, so 4 frames were needed to show the full chessboard, given a very intense 15hz flicker.
+
+I've redesigned the display to use "venetian blinds" a technique common to Atari games, but I had a very difficult problem: it was developed for small repeated bitmaps, I developed many versions of this code trying to solve it, the TIA allows for repositioning the bitmap in the same scanline where it's draw but it wouldn't show again till an internal display counter has reached 160 pixels, so I solved it in 3 scanlines: 1. repositioning in one scan line, 2. displaying two pieces and moving to right (the only movement possible that complies with the condition of internal counter reaching 160 pixels), 3. displaying two pieces and repeating.
 
 Even if pixel objects are a single pixel (but can be "fat") these can be draw over several lines, making a big object like the cursor which uses missile 0.
 
-Of the 1024 bytes, the AI engine uses 429 bytes (initialization+engine+tables), the repetitive nature of the TIA display occupies the remaining bytes. Still remains 30 bytes free for improvements.
+Of the 1024 bytes, the AI engine uses 429 bytes (initialization+engine+tables), the repetitive nature of the TIA display occupies the remaining bytes. Still remains 7 bytes free for improvements.
 
 
 Code for Visual6502.ORG:

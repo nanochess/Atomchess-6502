@@ -20,6 +20,9 @@
         ;                             squares (Ferrie). Taken note of which
         ;                             instructions can trigger the oVerflow flag.
         ;                             Now can be assembled for visual6502.org
+        ; Revision date: Jul/08/2017. Redesigned display code to use venetian blinds
+        ;                             technique in Atari VCS display, it allows for
+        ;                             30hz flicker so pieces will look steady.
         ;
 
         processor 6502
@@ -574,20 +577,19 @@ ds3:    sta WSYNC       ; 0
         lda frame       ; 11
         lsr             ; 14
         bcc ds9         ; 16
-        ldy #2          ; 18
-ds10:   dey             ; 20/25
-        bne ds10        ;
-        nop
-        nop
-        nop 
+        pha
+        pla
+        pha
+        pla
+        lda bitmap0
         sta RESP0       ; 35
-        lda bitmap0     ; 38
+ds11:   lda bitmap0     ; 38
         sta RESP1       ; 41
 
-ds11:   ldy board,x      ; 44 Check color for the two pieces
+        ldy board,x      ; 44 Check color for first piece
         lda pieces_color,y ; 48
         sta COLUP0       ; 52
-        ldy board+1,x    ; 55 Check color for the two pieces
+        ldy board+1,x    ; 55 Check color for second piece
         lda pieces_color,y ; 59
         sta COLUP1       ; 63
         ldy bitmap0      ; 66
@@ -599,49 +601,39 @@ ds11:   ldy board,x      ; 44 Check color for the two pieces
         ldy bitmap1      ; 8
         lda pieces,y     ; 11
         sta GRP1         ; 15
-        inc bitmap0      ; 18
-        inc bitmap1      ; 23
         lda frame
         lsr
+        nop              ; 30
+        nop
         ldy board+4,x    ; 35 Check color for third piece (next scanline)
         lda pieces_color,y ; 39
         bcc ds5          ; 28
-        nop              ; 30
+        pha
+        pla
         nop
         nop
-        nop
-        sta COLUP0        ; 43
-        ldy board+5,x      ; 46 Check color for fourth piece (next scanline)
-        lda pieces_color,y ; 50
-        sta RESP0        ; 19
-        sta COLUP1       ; 26
-        sta RESP1        ; 28
-        bne ds4
+        bne ds5
 
 ds9:    sta RESP0        ; 19
-        nop              ; 22
-        nop              ; 24
-        nop              ; 26
-        sta RESP1        ; 28
         bcc ds11
 
-ds5:    nop              ; 33
-        ldy bitmap0      ; 51
-        sta RESP0        ; 48
-        sta COLUP0        ; 43
-        sta RESP1        ; 54
+ds5:    sta COLUP0
         ldy board+5,x      ; 57 Check color for the two pieces
         lda pieces_color,y ; 61
-        sta COLUP1         ; 65
-
-ds4:    sta WSYNC
+        sta RESP0        ; 48
+        sta COLUP1       ; 43
+        sta RESP1        ; 54
         ldy bitmap2        ; 3 
+
+        sta WSYNC
         lda pieces,y       ; 6
         asl
         sta GRP0           ; 10
         ldy bitmap3        ; 16
         lda pieces,y       ; 22
         sta GRP1           ; 31
+        inc bitmap0      ; 18
+        inc bitmap1      ; 23
         inc bitmap2        ; 34
         inc bitmap3        ; 39
         tya                ; 44
@@ -664,7 +656,6 @@ ds8:
         ;
         ; End of graphics (204 lines)
         ;
-        sta WSYNC
         lda #2
         sta WSYNC
         sta VBLANK
@@ -688,9 +679,9 @@ wait_overscan:
 
         rts
 
-        echo "Free bytes section 1: ",$ff11-*
+        echo "Free bytes section 1: ",$ff00-*
 
-        org $ff11       
+        org $ff00
 pieces:
         .byte $00,$00,$00,$00,$00,$00,$00,$00
         .byte $00,$18,$3c,$3c,$18,$3c,$00,$00
@@ -761,7 +752,6 @@ rc1:    rol                ; Jump if not going down
         ldy #8
 
 rc2:    
-    if 0
         rol                ; Jump if not going up
         bmi rc3
         ldx cursory
@@ -773,7 +763,6 @@ rc3:
         stx AUDC0
         sty AUDV0
         sty AUDF0
-    endif
 ;       jmp read_coor2     ; Fall thru
         ;
         ; Read a coordinate in a
