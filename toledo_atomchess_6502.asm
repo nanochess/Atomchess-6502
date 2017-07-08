@@ -606,10 +606,11 @@ ds3:
         sta GRP1         ; 20
         inc bitmap0      ; 23
         inc bitmap1      ; 28
-        ldy board+2,x    ; 33 Check color for the two pieces
+        nop              ; 33
+        nop              ; 35
         sta RESP0        ; 37
-        lda bitmap0      ; 40
-        lda bitmap0      ; 43
+        nop              ; 40
+        ldy board+2,x    ; 42 Check color for the two pieces
         sta RESP1        ; 46
         lda pieces_color,y ; 49
         sta COLUP0         ; 53
