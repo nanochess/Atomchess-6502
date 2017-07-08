@@ -22,7 +22,9 @@
         ;                             Now can be assembled for visual6502.org
         ; Revision date: Jul/08/2017. Redesigned display code to use venetian blinds
         ;                             technique in Atari VCS display, it allows for
-        ;                             30hz flicker so pieces will look steady.
+        ;                             30hz flicker so pieces will look steady. Now
+        ;                             cursor can turn around the chessboard and also
+        ;                             saves bytes. Support for Supercharger.
         ;
 
         processor 6502
@@ -241,11 +243,10 @@ sr11:   jsr read_coor
     if mode = atari
         ldx #63
 kn0:    txa
+        pha
         lsr
         lsr
         sta AUDV0
-        txa
-        pha
         jsr kernel
         pla
         tax
@@ -257,6 +258,10 @@ kn0:    txa
         jsr play        ; Computer play
         jmp sr21
 
+        ;
+        ; Start chess playing code, this code is the end of loop but it's here
+        ; to save bytes ;)
+        ;
 sr14:   inc offset
         dec total
         bne sr12
@@ -394,7 +399,7 @@ sr20:   lda offset      ; Offset for movement
         ldy target
         jsr sr28        ; Do move
         lda side
-        eor #8          ; Change side
+        eor #8          ; Change side (doesn't save in stack because lack of space)
         sta side
         jsr play
         lda side
@@ -406,7 +411,7 @@ sr20:   lda offset      ; Offset for movement
         sec             ; Take capture score and substract adversary score
         sbc score
         stx score       ; Restore current score
-sr22:   cmp score        ; Better score?
+sr22:   cmp score       ; Better score?
         clc
         bmi sr23        ; No, jump
         bne sr33        ; Better score? yes, jump
@@ -470,12 +475,12 @@ sr16:   jmp sr14
         sta RESP0+{1}   ; 21/26/31/36/41/46/51/56/61/66/71 - "big" positioning
         ENDM
 
-    ;
-    ; Display kernel
-    ;
+        ;
+        ; Display kernel
+        ;
 kernel:
         lda #$00
-        sta COLUBK      ; Background color
+        sta COLUBK      ; Background color (border in this case)
 
         ; VERTICAL_SYNC
         ldx #2
@@ -487,22 +492,22 @@ kernel:
         ldx #43
         stx TIM64T
         sta VSYNC       ; Stop vertical synchro
-        sta GRP0
-        sta GRP1
+        sta GRP0        ; Clear player 0 bitmap
+        sta GRP1        ; Clear player 1 bitmap
         lda #color_black_square
         sta COLUBK      ; Background color
-        lda #$35
+        lda #$35        ; Double-size player, 8-pixel missile
         sta NUSIZ0      ; Size of player/missile 0
         sta NUSIZ1      ; Size of player/missile 1
         lda #color_white_square
         sta COLUPF      ; Color of playfield
         lda cursorx     ; Get X-position of cursor and set up missile 0
-        asl
-        asl
+        asl             ; x2
+        asl             ; x4
         sta even
-        asl
-        asl
-        adc even        ; Can set V flag for eighth square (cursorx = 7)
+        asl             ; x8
+        asl             ; x16
+        adc even        ; x20 Can set V flag for eighth square (cursorx = 7)
         adc #14
         cmp #14
         bne *+4
@@ -516,6 +521,11 @@ wait_vblank:
         bne wait_vblank
         ;
         ; Start of graphics
+        ;
+        ; Each graphic line sizes up to 76 cycles of 6502 processor.
+        ;
+        ; Doing STA WSYNC isn't required but it helps to clarify where
+        ; each video line starts.
         ;
         sta WSYNC              
         sta VBLANK
@@ -540,17 +550,17 @@ ds6:    lda #$f0        ; 11
         lda #$07        ; 18
 ds7:    sty PF1         ; 20/22
         sta PF2         ; 23/25
-        lda board,x     ; 26/28 Bitmap for piece
+        lda board,x     ; 26/28 Bitmap for piece at column offset 0
         and #7          ; 30/34
         asl             ; 32
         asl             ; 34
         asl             ; 36
         sta bitmap0     ; 38
-        lda board+1,x   ; 41
+        lda board+1,x   ; 41 Bitmap for piece at column offset 1
         and #7          ; 45
         asl             ; 47
         asl             ; 49
-        asl             ; 51 Carry is zero after this instruction
+        asl             ; 51 
         sta bitmap1     ; 53
         sta WSYNC       ; 0 Row 1
         lda even        ; 3 Check if row...
@@ -558,18 +568,21 @@ ds7:    sty PF1         ; 20/22
         php             ; 9 Save Z flag...
         pla             ; 12 ...so it goes to bit 1
         sta ENAM0       ; 16 Enable missile if at right Y position
-        lda board+4,x   ; 19 Bitmap for piece
+        lda board+4,x   ; 19 Bitmap for piece at column offset 4
         and #7          ; 23
         asl             ; 25
         asl             ; 27
         asl             ; 29
         sta bitmap2     ; 31
-        lda board+5,x   ; 34 Bitmap for piece
+        lda board+5,x   ; 34 Bitmap for piece at column offset 5
         and #7          ; 38
         asl             ; 40
         asl             ; 42
         asl             ; 44
         sta bitmap3     ; 46
+        ;
+        ; Do loop to draw 21 scanlines
+        ;
 ds3:    sta WSYNC       ; 0 
         lda #0          ; 3
         sta GRP0        ; 5
@@ -577,80 +590,80 @@ ds3:    sta WSYNC       ; 0
         lda frame       ; 11
         lsr             ; 14
         bcc ds9         ; 16
-        pha
-        pla
-        pha
-        pla
-        lda bitmap0
+        pha             ; 18
+        pla             ; 21
+        pha             ; 25
+        pla             ; 28
+        lda bitmap0     ; 32
         sta RESP0       ; 35
-ds11:   lda bitmap0     ; 38
-        sta RESP1       ; 41
+ds11:   lda bitmap0     ; 38/25
+        sta RESP1       ; 41/28
 
-        ldy board,x      ; 44 Check color for first piece
+        ldy board,x     ; 44 Check color for first piece
         lda pieces_color,y ; 48
-        sta COLUP0       ; 52
-        ldy board+1,x    ; 55 Check color for second piece
+        sta COLUP0      ; 52
+        ldy board+1,x   ; 55 Check color for second piece
         lda pieces_color,y ; 59
-        sta COLUP1       ; 63
-        ldy bitmap0      ; 66
-        lda pieces,y     ; 69
+        sta COLUP1      ; 63
+        ldy bitmap0     ; 66
+        lda pieces,y    ; 69
 
-        sta WSYNC
-        asl              ; 3
-        sta GRP0         ; 5
-        ldy bitmap1      ; 8
-        lda pieces,y     ; 11
-        sta GRP1         ; 15
+        sta WSYNC       ; Start scanline to draw 2 pieces at left
+        asl             ; 3
+        sta GRP0        ; 5
+        ldy bitmap1     ; 8
+        lda pieces,y    ; 11
+        sta GRP1        ; 15
         lda frame
         lsr
-        nop              ; 30
+        nop             ; 30
         nop
-        ldy board+4,x    ; 35 Check color for third piece (next scanline)
+        ldy board+4,x   ; 35 Check color for third piece (next scanline)
         lda pieces_color,y ; 39
-        bcc ds5          ; 28
+        bcc ds5         ; 28
         pha
         pla
         nop
         nop
         bne ds5
 
-ds9:    sta RESP0        ; 19
-        bcc ds11
+ds9:    sta RESP0       ; 19
+        bcc ds11        ; 22
 
 ds5:    sta COLUP0
-        ldy board+5,x      ; 57 Check color for the two pieces
+        ldy board+5,x   ; 57 Check color for the two pieces
         lda pieces_color,y ; 61
-        sta RESP0        ; 48
-        sta COLUP1       ; 43
-        sta RESP1        ; 54
-        ldy bitmap2        ; 3 
+        sta RESP0       ; 48
+        sta COLUP1      ; 43
+        sta RESP1       ; 54
+        ldy bitmap2     ; 3 
 
-        sta WSYNC
-        lda pieces,y       ; 6
-        asl
-        sta GRP0           ; 10
-        ldy bitmap3        ; 16
-        lda pieces,y       ; 22
-        sta GRP1           ; 31
-        inc bitmap0      ; 18
-        inc bitmap1      ; 23
-        inc bitmap2        ; 34
-        inc bitmap3        ; 39
-        tya                ; 44
-        and #7             ; 47
-        sec                ; 26
-        sbc #6             ; 49
-        beq ds12
-        jmp ds3            ; 51 + 3
+        sta WSYNC       ; 0
+        lda pieces,y    ; 3
+        asl             ; 7
+        sta GRP0        ; 9
+        ldy bitmap3     ; 12
+        lda pieces,y    ; 15
+        sta GRP1        ; 19
+        inc bitmap0     ; 22
+        inc bitmap1     ; 27
+        inc bitmap2     ; 32
+        inc bitmap3     ; 37
+        tya             ; 42
+        and #7          ; 44
+        sec             ; 46
+        sbc #6          ; 48
+        beq ds12        ; 50
+        jmp ds3         ; 52 + 3
 ds12:
-        sta ENAM0        ; Disable cursor
-        inc even         ; Increase current row
+        sta ENAM0       ; Disable cursor
+        inc even        ; Increase current row
         txa
-        clc             ; Carry is still zero//
-        adc #10          ; Next row of board
-        cmp #80
-        bcs ds8
-        jmp ds0
+        clc             ;
+        adc #10         ; Next row of board
+        cmp #80         ; Completed chessboard?
+        bcs ds8         ; Yes, jump
+        jmp ds0         ; No, continue
 ds8:
 
         ;
@@ -679,7 +692,7 @@ wait_overscan:
 
         rts
 
-        echo "Free bytes section 1: ",$ff00-*
+        echo "Free bytes section 1 ($fc00-$feff): ",$ff00-*
 
         org $ff00
 pieces:
@@ -723,42 +736,37 @@ read_coor:
 
 rc5:    ldy #0
         lda SWCHA          ; Read current state of joystick
+        eor #$ff           ; 0= Not pressed, 1= pressed
         sta even
         tax
-        eor pSWCHA
-        stx pSWCHA         
-        eor #$ff
-        ora even           ; Disable unchanged directions
-        bmi rc0            ; Jump if not going right
-        ldx cursorx
-        cpx #7
-        beq rc0
+        eor pSWCHA         ; XOR with previous state
+        stx pSWCHA         ; Save new state
+        and even           ; Disable unchanged directions
+        bpl rc0            ; Jump if not going right
         inc cursorx
-        ldy #8
 
-rc0:    rol                ; Jump if not going left
-        bmi rc1
-        ldx cursorx
-        beq rc1
+rc0:    and #$f0
+        beq rc4
+        ldy #8             ; Sound effect for movement
+rc4:    rol                ; Jump if not going left
+        bpl rc1
         dec cursorx
-        ldy #8
 
 rc1:    rol                ; Jump if not going down
-        bmi rc2
-        ldx cursory
-        cpx #7
-        beq rc2
+        bpl rc2
         inc cursory
-        ldy #8
 
 rc2:    
         rol                ; Jump if not going up
-        bmi rc3
-        ldx cursory
-        beq rc3
+        bpl rc3
         dec cursory
-        ldy #8
 rc3:    
+        lda cursorx
+        and #7
+        sta cursorx
+        lda cursory
+        and #7
+        sta cursory
         ldx #$01
         stx AUDC0
         sty AUDV0
@@ -908,9 +916,11 @@ pieces_color:
         .byte color_white, color_white, color_white, color_white
         .byte color_white, color_white, color_white
 
-        echo "Free bytes section 2: ",$fffc-*
+        echo "Free bytes section 2 ($ff00-$fff7): ",$fff8-*
 
-        org $fffc
+        org $fff8
+        .byte 0,0,0,0      ; Avoid bank switching (Supercharger)
+
         .word START        ; RESET
         .word START        ; BRK
     endif
