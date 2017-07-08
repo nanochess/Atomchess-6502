@@ -528,7 +528,7 @@
     518  fdf8		       85 01		      sta	VBLANK
     519  fdfa		       85 80		      sta	even	; Now uses like row counter, start at zero
     520  fdfc		       a5 86		      lda	frame	; Board position per frame
-    521  fdfe		       a9 00		      lda	#0
+    521  fdfe		       29 01		      and	#1
     522  fe00		       aa	   ds0	      tax
     523  fe01		       85 02	   ds1	      sta	WSYNC	; Row 0
     524  fe03		       a5 80		      lda	even	; Squares configuration over board
@@ -565,14 +565,14 @@
     555  fe37		       0a		      asl		; //Carry is zero after this instruction
     556  fe38		       85 83		      sta	bitmap1
     557  fe3a		       85 02		      sta	WSYNC
-    558  fe3c		       b5 8c		      lda	board+0,x	; Bitmap for piece
+    558  fe3c		       b5 90		      lda	board+4,x	; Bitmap for piece
     559  fe3e		       29 07		      and	#7
     560  fe40		       0a		      asl
     561  fe41		       0a		      asl
     562  fe42		       0a		      asl
     563  fe43		       85 81		      sta	bitmap2
     564  fe45		       85 02		      sta	WSYNC
-    565  fe47		       b5 8e		      lda	board+2,x	; Bitmap for piece
+    565  fe47		       b5 92		      lda	board+6,x	; Bitmap for piece
     566  fe49		       29 07		      and	#7
     567  fe4b		       0a		      asl
     568  fe4c		       0a		      asl
@@ -582,9 +582,9 @@
     572  fe52		       a5 86		      lda	frame	; 3
     573  fe54		       a5 86		      lda	frame	; 6
     574  fe56		       a5 86		      lda	frame	; 9
-    575  fe58		       4a		      lsr		; 14
-    576  fe59		       a0 03		      ldy	#3	; 12
-    577  fe5b		       d0 08		      bne	ds9	; 16
+    575  fe58		       a0 03		      ldy	#3	; 12
+    576  fe5a		       4a		      lsr		; 14
+    577  fe5b		       90 08		      bcc	ds9	; 16
     578  fe5d		       a0 03		      ldy	#3	; 18
     579  fe5f		       88	   ds10       dey		; 20/25/30
     580  fe60		       d0 fd		      bne	ds10

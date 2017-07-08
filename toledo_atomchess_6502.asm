@@ -518,7 +518,7 @@ wait_vblank:
         sta VBLANK
         sta even        ; Now uses like row counter, start at zero
         lda frame       ; Board position per frame
-        lda #0
+        and #1
 ds0:    tax    
 ds1:    sta WSYNC       ; Row 0
         lda even        ; Squares configuration over board
@@ -572,9 +572,9 @@ ds7:    sty PF1
         lda frame        ; 3
         lda frame        ; 6
         lda frame        ; 9
-        lsr              ; 14
         ldy #3           ; 12
-        bne ds9          ; 16
+        lsr              ; 14
+        bcc ds9          ; 16
         ldy #3           ; 18
 ds10:   dey              ; 20/25/30
         bne ds10
