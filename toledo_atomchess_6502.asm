@@ -521,175 +521,137 @@ wait_vblank:
         and #1
         asl
 ds0:    tax    
-ds1:    sta WSYNC       ; Row 0
-        lda even        ; Squares configuration over board
-        lsr
-        bcc ds6
-        lda #$00
-        sta PF0
-        ldy #$7c
-        lda #$f8
-        bne ds7
+ds1:    sta WSYNC       ; 0 Row 0
+        lda even        ; 3 Squares configuration over board
+        lsr             ; 6
+        bcc ds6         ; 8
+        lda #$00        ; 10
+        sta PF0         ; 12
+        ldy #$7c        ; 15
+        lda #$f8        ; 17
+        bne ds7         ; 19
 
-ds6:    lda #$f0
-        sta PF0
-        ldy #$83
-        lda #$07
-ds7:    sty PF1
-        sta PF2
-        lda board,x      ; Bitmap for piece
-        and #7
-        asl
-        asl
-        asl
-        sta bitmap0
-        sta WSYNC        ; Row 1
-        lda even         ; Check if row...
-        cmp cursory      ; ...equals row of cursor
-        php              ; Save Z flag...
-        pla              ; ...so it goes to bit 1
-        sta ENAM0        ; Enable missile if at right Y position
-        lda board+1,x
-        and #7
-        asl
-        asl
-        asl              ; //Carry is zero after this instruction
-        sta bitmap1
-        sta WSYNC
-        lda board+4,x      ; Bitmap for piece
-        and #7
-        asl
-        asl
-        asl
-        sta bitmap2
-        sta WSYNC
-        lda board+5,x      ; Bitmap for piece
-        and #7
-        asl
-        asl
-        asl
-        sta bitmap3
-        sta WSYNC        ; 0
-        lda frame        ; 3
-        lda frame        ; 6
-        lda frame        ; 9
-        lsr              ; 14
-        ldy #3           ; 12
-        bcc ds9          ; 16
-        ldy #2           ; 18
-ds10:   dey              ; 20/25
-        bne ds10
-        lda bitmap0      ; 29
-        lda bitmap0      ; 32
-        sta RESP0        ; 35
-        lda bitmap0      ; 38
-        sta RESP1        ; 41
-
-ds11:
-        ldy board,x      ; 54 Check color for the two pieces
-        lda pieces_color,y ; 58
-        sta COLUP0       ; 62
-        ldy board+1,x    ; 65 Check color for the two pieces
-        lda pieces_color,y ; 69
-        sta COLUP1       ; 73
-
-        sta WSYNC
-        ldy bitmap0      ; 3
-        lda pieces,y     ; 6
-        sta GRP0         ; 10
-        ldy bitmap1      ; 13
-        lda pieces,y     ; 22
-        sta GRP1         ; 31
-        inc bitmap0      ; 34
-        inc bitmap1      ; 39
+ds6:    lda #$f0        ; 11
+        sta PF0         ; 13
+        ldy #$83        ; 16
+        lda #$07        ; 18
+ds7:    sty PF1         ; 20/22
+        sta PF2         ; 23/25
+        lda board,x     ; 26/28 Bitmap for piece
+        and #7          ; 30/34
+        asl             ; 32
+        asl             ; 34
+        asl             ; 36
+        sta bitmap0     ; 38
+        lda board+1,x   ; 41
+        and #7          ; 45
+        asl             ; 47
+        asl             ; 49
+        asl             ; 51 Carry is zero after this instruction
+        sta bitmap1     ; 53
+        sta WSYNC       ; 0 Row 1
+        lda even        ; 3 Check if row...
+        cmp cursory     ; 6 ...equals row of cursor
+        php             ; 9 Save Z flag...
+        pla             ; 12 ...so it goes to bit 1
+        sta ENAM0       ; 16 Enable missile if at right Y position
+        lda board+4,x   ; 19 Bitmap for piece
+        and #7          ; 23
+        asl             ; 25
+        asl             ; 27
+        asl             ; 29
+        sta bitmap2     ; 31
+        lda board+5,x   ; 34 Bitmap for piece
+        and #7          ; 38
+        asl             ; 40
+        asl             ; 42
+        asl             ; 44
+        sta bitmap3     ; 46
+ds3:    sta WSYNC       ; 0 
+        lda #0          ; 3
+        sta GRP0        ; 5
+        sta GRP1        ; 8
+        lda frame       ; 11
+        lsr             ; 14
+        bcc ds9         ; 16
+        ldy #2          ; 18
+ds10:   dey             ; 20/25
+        bne ds10        ;
         nop
-        sta RESP0        ; 19
-        lda bitmap0      ; 26
-        sta RESP1        ; 28
+        nop
+        nop 
+        sta RESP0       ; 35
+        lda bitmap0     ; 38
+        sta RESP1       ; 41
 
-        ldy board+4,x    ; 44 Check color for the two pieces
+ds11:   ldy board,x      ; 44 Check color for the two pieces
         lda pieces_color,y ; 48
-        sta COLUP0        ; 52
-        ldy board+5,x      ; 55 Check color for the two pieces
+        sta COLUP0       ; 52
+        ldy board+1,x    ; 55 Check color for the two pieces
         lda pieces_color,y ; 59
-        sta COLUP1         ; 63
+        sta COLUP1       ; 63
+        ldy bitmap0      ; 66
+        lda pieces,y     ; 69
 
         sta WSYNC
-        ldy bitmap2        ; 3 
-        lda pieces,y       ; 6
-        sta GRP0           ; 10
-        ldy bitmap3        ; 13
-        lda pieces,y       ; 16
-        sec                ; 20
-        sta GRP1           ; 22
-        inc bitmap2        ; 25
-        inc bitmap3        ; 30
-        sta RESBL          ; 35
-        lda bitmap0        ; 38
-        sta RESBL          ; 41
-        and #7             ; 44
-        sbc #7             ; 46
-        bne ds11            ; 48 + 3
-        jmp ds12
+        asl              ; 3
+        sta GRP0         ; 5
+        ldy bitmap1      ; 8
+        lda pieces,y     ; 11
+        sta GRP1         ; 15
+        inc bitmap0      ; 18
+        inc bitmap1      ; 23
+        lda frame
+        lsr
+        ldy board+4,x    ; 35 Check color for third piece (next scanline)
+        lda pieces_color,y ; 39
+        bcc ds5          ; 28
+        nop              ; 30
+        nop
+        nop
+        nop
+        sta COLUP0        ; 43
+        ldy board+5,x      ; 46 Check color for fourth piece (next scanline)
+        lda pieces_color,y ; 50
+        sta RESP0        ; 19
+        sta COLUP1       ; 26
+        sta RESP1        ; 28
+        bne ds4
 
 ds9:    sta RESP0        ; 19
         nop              ; 22
         nop              ; 24
         nop              ; 26
         sta RESP1        ; 28
+        bcc ds11
 
-ds3:
-        ldy board,x      ; 54 Check color for the two pieces
-        lda pieces_color,y ; 58
-        sta COLUP0       ; 62
-        ldy board+1,x    ; 65 Check color for the two pieces
-        lda pieces_color,y ; 69
-        sta COLUP1       ; 73
-
-        sta WSYNC
-        ldy bitmap0      ; 3
-        lda pieces,y     ; 6
-        sta GRP0         ; 10
-        ldy bitmap1      ; 13
-        lda pieces,y     ; 16
-        sta GRP1         ; 20
-        inc bitmap0      ; 23
-        inc bitmap1      ; 28
-        nop              ; 33
-        ldy board+4,x    ; 35 Check color for the two pieces
-        lda pieces_color,y ; 39
-        sta COLUP0        ; 43
-        nop              ; 46
+ds5:    nop              ; 33
+        ldy bitmap0      ; 51
         sta RESP0        ; 48
-        lda bitmap0      ; 51
+        sta COLUP0        ; 43
         sta RESP1        ; 54
         ldy board+5,x      ; 57 Check color for the two pieces
         lda pieces_color,y ; 61
         sta COLUP1         ; 65
 
-        sta WSYNC
+ds4:    sta WSYNC
         ldy bitmap2        ; 3 
         lda pieces,y       ; 6
+        asl
         sta GRP0           ; 10
-        sta GRP0        ; 13
         ldy bitmap3        ; 16
-        sta RESP0          ; 19
         lda pieces,y       ; 22
-        sec                ; 26
-        sta RESP1          ; 28
         sta GRP1           ; 31
         inc bitmap2        ; 34
         inc bitmap3        ; 39
         tya                ; 44
         and #7             ; 47
+        sec                ; 26
         sbc #6             ; 49
-        bne ds3            ; 51 + 3
+        beq ds12
+        jmp ds3            ; 51 + 3
 ds12:
-        sta WSYNC
         sta ENAM0        ; Disable cursor
-        sta WSYNC
-        sta WSYNC
-        sta WSYNC
         inc even         ; Increase current row
         txa
         clc             ; Carry is still zero//
@@ -726,9 +688,9 @@ wait_overscan:
 
         rts
 
-        echo "Free bytes section 1: ",$ff20-*
+        echo "Free bytes section 1: ",$ff11-*
 
-        org $ff64       
+        org $ff11       
 pieces:
         .byte $00,$00,$00,$00,$00,$00,$00,$00
         .byte $00,$18,$3c,$3c,$18,$3c,$00,$00
@@ -769,7 +731,6 @@ read_coor:
         rts
 
 rc5:    ldy #0
-    if 0
         lda SWCHA          ; Read current state of joystick
         sta even
         tax
@@ -799,7 +760,9 @@ rc1:    rol                ; Jump if not going down
         inc cursory
         ldy #8
 
-rc2:    rol                ; Jump if not going up
+rc2:    
+    if 0
+        rol                ; Jump if not going up
         bmi rc3
         ldx cursory
         beq rc3
@@ -817,8 +780,6 @@ rc3:
         ;
 read_coor2:
         jsr kernel
-        jmp rc5
-    if 0
         ;lda #0            ; Kernel returns with a = 0
         sta AUDV0
         lda INPT4          ; Read current state of button
@@ -844,7 +805,6 @@ read_coor2:
         asl                ; *10
         adc cursorx        ; + x_coor
         rts
-    endif
 
     else
 kernel:
