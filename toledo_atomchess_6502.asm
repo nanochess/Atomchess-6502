@@ -457,23 +457,16 @@ sr18:   lda board,x
 sr16:   jmp sr14
 
     if mode = atari
-        ;
-        ; Set object in X
-        ; A = X position
-        ; First arg = Object to position (0=P0, 1=P1, 2=M0, 3=M1, 4=BALL)
-        ; Exits with carry = 0, it can set V flag for X >= 128
-        ;
-        MAC set_x_position
-        sta WSYNC       ; 0- Start line synchro
-        sec             ; 3- Set carry flag (avoids it in loop)
-.AE2:   sbc #15         ; 5- Uses required time dividing A by 15
-        bcs .AE2        ; 7/8 - 9/14/19/24/29/34/39/44/49/54/59/64
-        tay             ; 9
-        lda fine_adjustment-$f1,y ; 11 - Eats 5 cycles crossing page
-        sta HMP0+{1}    ; 16
-        nop             ; 19
-        sta RESP0+{1}   ; 21/26/31/36/41/46/51/56/61/66/71 - "big" positioning
-        ENDM
+
+x_column:
+        .byte 11/15+$c0
+        .byte 34/15+$30
+        .byte 54/15+$e0
+        .byte 74/15+$90
+        .byte 94/15+$30
+        .byte 114/15+$e0
+        .byte 134/15+$90
+        .byte 154/15+$30
 
         ;
         ; Display kernel
@@ -501,18 +494,19 @@ kernel:
         sta NUSIZ1      ; Size of player/missile 1
         lda #color_white_square
         sta COLUPF      ; Color of playfield
-        lda cursorx     ; Get X-position of cursor and set up missile 0
-        asl             ; x2
-        asl             ; x4
-        sta even
-        asl             ; x8
-        asl             ; x16
-        adc even        ; x20 Can set V flag for eighth square (cursorx = 7)
-        adc #14
-        cmp #14
-        bne *+4
-        sbc #3
-        set_x_position 2
+        ldx cursorx     ; Get X-position of cursor and set up missile 0
+        lda x_column,x
+        pha
+        and #$0f
+        sta WSYNC       ; 0- Start line synchro
+        sec             ; 3- Set carry flag (avoids it in loop)
+.AE2:   sbc #1          ; 5- Uses required time dividing A by 15
+        bcs .AE2        ; 7/8 - 9/14/19/24/29/34/39/44/49/54/59/64
+        lda cursorx     ; 9
+        pla             ; 12 
+        sta HMM0        ; 16
+        nop             ; 19
+        sta RESM0       ; 21/26/31/36/41/46/51/56/61/66/71 - "big" positioning
         sta WSYNC              
         sta HMOVE       ; Fine adjustment for all set_x_position
 
@@ -608,35 +602,35 @@ ds11:   lda bitmap0     ; 38/25
         ldy bitmap0     ; 66
         lda pieces,y    ; 69
 
-        sta WSYNC       ; Start scanline to draw 2 pieces at left
+        sta WSYNC       ; 0 Start scanline to draw 2 pieces at left
         asl             ; 3
         sta GRP0        ; 5
         ldy bitmap1     ; 8
         lda pieces,y    ; 11
         sta GRP1        ; 15
-        lda frame
-        lsr
-        nop             ; 30
-        nop
-        ldy board+4,x   ; 35 Check color for third piece (next scanline)
-        lda pieces_color,y ; 39
-        bcc ds5         ; 28
-        pha
-        pla
-        nop
-        nop
-        bne ds5
+        lda frame       ; 18
+        lsr             ; 21
+        nop             ; 23
+        nop             ; 25
+        ldy board+4,x   ; 27 Check color for third piece (next scanline)
+        lda pieces_color,y ; 31
+        bcc ds5         ; 35
+        pha             ; 37
+        pla             ; 40
+        nop             ; 44
+        nop             ; 46
+        bne ds5         ; 48
 
 ds9:    sta RESP0       ; 19
         bcc ds11        ; 22
 
-ds5:    sta COLUP0
-        ldy board+5,x   ; 57 Check color for the two pieces
-        lda pieces_color,y ; 61
-        sta RESP0       ; 48
-        sta COLUP1      ; 43
-        sta RESP1       ; 54
-        ldy bitmap2     ; 3 
+ds5:    sta COLUP0      ; 38/51
+        ldy board+5,x   ; 41/54 Check color for the two pieces
+        lda pieces_color,y ; 45/58
+        sta RESP0       ; 49/62
+        sta COLUP1      ; 52/65
+        sta RESP1       ; 55/68
+        ldy bitmap2     ; 58/71
 
         sta WSYNC       ; 0
         lda pieces,y    ; 3
@@ -703,23 +697,6 @@ pieces:
         .byte $5a,$5a,$24,$3c,$3c,$3c,$00,$00
         .byte $70,$58,$7c,$6e,$1e,$3e,$00,$00
         .byte $3c,$6a,$56,$3c,$3c,$3c,$00,$00
-
-fine_adjustment:
-        .byte $70       ; -7 
-        .byte $60       ; -6 
-        .byte $50       ; -5
-        .byte $40       ; -4
-        .byte $30       ; -3
-        .byte $20       ; -2
-        .byte $10       ; -1
-        .byte $00       ; 0
-        .byte $f0       ; +1
-        .byte $e0       ; +2
-        .byte $d0       ; +3
-        .byte $c0       ; +4
-        .byte $b0       ; +5
-        .byte $a0       ; +6
-        .byte $90       ; +7
 
         ;
         ; Read a coordinate choosen by cursor
