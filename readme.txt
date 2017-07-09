@@ -61,6 +61,8 @@ Even if pixel objects are a single pixel (but can be "fat") these can be draw ov
 
 Of the 1024 bytes, the AI engine uses 429 bytes (initialization+engine+tables), the repetitive nature of the TIA display occupies the remaining bytes. Still remains 7 bytes free for improvements.
 
+Just as a note, the Atari Flashback Portable doesn't support the new trick in its emulator and can only display the previous version (search for Jan/16/2017 in commits)
+
 
 Code for Visual6502.ORG:
 
