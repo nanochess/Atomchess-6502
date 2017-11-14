@@ -25,6 +25,7 @@
         ;                             30hz flicker so pieces will look steady. Now
         ;                             cursor can turn around the chessboard and also
         ;                             saves bytes. Support for Supercharger.
+        ; Revision date: Nov/14/2017. Saved 5 bytes more in some loops (Ferrie).
         ;
 
         processor 6502
@@ -197,8 +198,8 @@ sr0:    sta 0,X      ; Save in address 0 plus X
     endif
 
 sr1:    ldy #8
-sr3:    lda #$00
-        sta board,x
+        lda #$00
+sr3:    sta board,x
         inx
         dey
         bne sr3
@@ -352,12 +353,11 @@ sr27:   lda board,y
 sr26:   sta score
         rts
 
+sr29:   bcs sr18        ; Yes, avoid
 sr10:   bcc sr20        ; If isn't pawn, jump.
         lda total
         cmp #2          ; Diagonal?
-        beq sr15        ; Jump if one square ahead
-sr29:   bcs sr18        ; Yes, avoid
-        bcc sr20
+        bne sr29        ; Jump if one square ahead
 
 sr15:   txa
         ;sec            ; Carry set already because equality comparison
@@ -414,15 +414,15 @@ sr20:   lda offset      ; Offset for movement
 sr22:   cmp score       ; Better score?
         clc
         bmi sr23        ; No, jump
+        sta score       ; Update score
         bne sr33        ; Better score? yes, jump
         lda frame       ; Equal score, randomize move
         ror
         ror
-        jmp sr23        ; No need to update score but carry = 1 will update move
         ;bcc sr23
         ;bcs sr23
-sr33:   sta score       ; Update score
-        sec
+        .byte $24       ; No need to update score but carry = 1 will update move
+sr33:   sec
 sr23:   pla             ; Restore board
         tax
         pla
@@ -499,9 +499,9 @@ kernel:
         pha
         and #$0f
         sta WSYNC       ; 0- Start line synchro
-        sec             ; 3- Set carry flag (avoids it in loop)
-.AE2:   sbc #1          ; 5- Uses required time dividing A by 15
-        bcs .AE2        ; 7/8 - 9/14/19/24/29/34/39/44/49/54/59/64
+        tay             ; 3- transfer A to Y (avoids it in loop)
+.AE2:   dey             ; 5- Uses required time dividing A by 15
+        bpl .AE2        ; 7/8 - 9/14/19/24/29/34/39/44/49/54/59/64
         lda cursorx     ; 9
         pla             ; 12 
         sta HMM0        ; 16
