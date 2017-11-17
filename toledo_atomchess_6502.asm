@@ -333,7 +333,7 @@ sr9:    ldy offset
         beq sr10        ; Jump if empty square
         bcc sr27        ; Jump if isn't not pawn
         lda total
-        cmp #3          ; Straight?
+        cmp #3          ; Straight movement?
         bcc sr17        ; Yes, avoid and cancels any double square movement
 sr27:   lda board,y
         eor side
@@ -353,18 +353,23 @@ sr27:   lda board,y
 sr26:   sta score
         rts
 
-sr29:   bcs sr18        ; Yes, avoid
-sr10:   bcc sr20        ; If isn't pawn, jump.
+sr29:   bcs sr18        ; Avoid movement if pawn is going diagonal
+                        ; Next comparison does movement if two squares ahead
+                        ; (already validated)
+        ;
+        ; Enters here if piece is going to empty square
+        ;
+sr10:   bcc sr20        ; If isn't pawn, jump and do movement
         lda total
-        cmp #2          ; Diagonal?
-        bne sr29        ; Jump if one square ahead
+        cmp #2          ; Pawn going one square ahead?
+        bne sr29        ; Jump if not case.
 
 sr15:   txa
-        ;sec            ; Carry set already because equality comparison
+        ;sec            ; Carry set already because comparison was equal
         sbc #20
         cmp #40         ; Moving from center of board?
-        bcs sr20
-        dec total       ; Yes, then avoid checking for two squares
+        bcs sr20        ; Jump if moving pawn from start square, autovalidates
+        dec total       ; Or not, avoid going two squares ahead.
         ;bcc sr20       ; Fall along
 
         ; Save all state
@@ -418,10 +423,8 @@ sr22:   cmp score       ; Better score?
         bne sr33        ; Better score? yes, jump
         lda frame       ; Equal score, randomize move
         ror
-        ror
-        ;bcc sr23
-        ;bcs sr23
-        .byte $24       ; No need to update score but carry = 1 will update move
+        ror             ; If carry = 1 then will update move
+        .byte $24       ; BIT to jump next bye.
 sr33:   sec
 sr23:   pla             ; Restore board
         tax
