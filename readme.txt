@@ -11,7 +11,7 @@ Besides the small AI it includes a graphical board and selection of pieces with 
 Don't expect the greatest visuals, I coded this in a night for the Hackaday 1K contest https://hackaday.io/contest/18215-the-1kb-challenge
 
 Assemble with dasm from http://dasm-dillon.sourceforge.net/ 
-Tested with Stella from http://stella.sourceforge.net/
+Tested with Stella from https://stella-emu.github.io/
 Tested with real Atari 2600 using Harmony cart.
 Tested with online emulation from http://8bitworkshop.com/
 Demostration video at https://www.youtube.com/watch?v=_Du4krvIl7o
